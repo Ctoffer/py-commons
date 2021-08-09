@@ -4,7 +4,20 @@ from inspect import signature
 
 class Constraint:
     @classmethod
-    def from_tuple(cls, tup):
+    def create(cls, value):
+
+        if type(value) == tuple:
+            operation, value = value
+            result = Constraint._from_tuple(operation, value)
+        elif type(value) == str:
+            result = Constraint._from_string(value)
+        else:
+            raise TypeError(f"Expected tuple or str, but got '{value}'")
+
+        return result
+
+    @staticmethod
+    def _from_tuple(operation, value):
         def equals(a):
             if not (value == a):
                 raise ValueError(f"Constraint actual:{a} == expected:{value} not met!")
@@ -17,14 +30,39 @@ class Constraint:
             if not (a < value):
                 raise ValueError(f"Constraint actual:{a} < expected:{value} not met!")
 
-        operation, value = tup
-
         if operation == "==":
             return equals
         elif operation == ">=":
             return greater_or_equals_than
         elif operation == "<":
             return less_than
+
+    @staticmethod
+    def _from_string(value):
+        def positive(a):
+            if not (a > 0):
+                raise ValueError(f"Constraint positive with value {a} not met!")
+
+        def negative(a):
+            if not (a < 0):
+                raise ValueError(f"Constraint negative with value {a} not met!")
+
+        def non_positive(a):
+            if a > 0:
+                raise ValueError(f"Constraint non-positive with value {a} not met!")
+
+        def non_negative(a):
+            if a < 0:
+                raise ValueError(f"Constraint non-negative with value {a} not met!")
+
+        lookup = {
+            "positive": positive,
+            "negative": negative,
+            "non-positive": non_positive,
+            "non-negative": non_negative
+        }
+
+        return lookup[value]
 
 
 class TypeChecker:
@@ -33,6 +71,7 @@ class TypeChecker:
         self._return_checker = None
         self._return_constraints = tuple()
         self._parameter_checkers = dict()
+        self._parameter_constraints = dict()
 
     @property
     def __name__(self):
@@ -43,9 +82,13 @@ class TypeChecker:
         return self._function.__doc__
 
     def __call__(self, *args, **kwargs):
-        for key, value in signature(self._function).bind(*args, **kwargs).arguments.items():
-            if key in self._parameter_checkers:
-                self._parameter_checkers[key](value)
+        for name, value in signature(self._function).bind(*args, **kwargs).arguments.items():
+            if name in self._parameter_checkers:
+                self._parameter_checkers[name](value)
+
+            if name in self._parameter_constraints:
+                for constraint in self._parameter_constraints[name]:
+                    constraint(value)
 
         value = self._function(*args, **kwargs)
 
@@ -63,10 +106,36 @@ class TypeChecker:
         self._return_checker = return_checker
 
     def set_return_constraints(self, return_constraints):
-        self._return_constraints = tuple(map(Constraint.from_tuple, return_constraints))
+        self._return_constraints = tuple(map(Constraint.create, return_constraints))
 
     def add_parameter_checker(self, key, parameter_checker):
         self._parameter_checkers[key] = parameter_checker
+
+    def add_paramater_constraints(self, key, constraints):
+        self._parameter_constraints[key] = tuple(map(Constraint.create, constraints))
+
+
+def retrieves(name, param_type: type, constraints: tuple = ()):
+    def wrapper(func):
+        def param_checker(value):
+            if type(value) != param_type:
+                raise TypeError(
+                    f"Expected '{func.__name__}' to retrieve object of type '{param_type.__name__}'"
+                    f" for parameter '{name}', but got '{type(value).__name__}'!"
+                )
+
+        if type(func) != TypeChecker:
+            type_checker = TypeChecker(func)
+            setattr(func, "__type_checker__", type_checker)
+        else:
+            type_checker = func
+
+        type_checker.add_parameter_checker(name, param_checker)
+        type_checker.add_paramater_constraints(name, constraints)
+
+        return type_checker
+
+    return wrapper
 
 
 def returns(return_type: type, constraints: tuple = ()):
@@ -76,12 +145,11 @@ def returns(return_type: type, constraints: tuple = ()):
                 raise TypeError(f"Expected '{func.__name__}' to return object of type '{return_type.__name__}',"
                                 f" but got '{type(value).__name__}'!")
 
-        if not hasattr(func, "__type_checker__"):
+        if type(func) != TypeChecker:
             type_checker = TypeChecker(func)
             setattr(func, "__type_checker__", type_checker)
-            func.__call__ = type_checker.__call__
-
-        type_checker = getattr(func, "__type_checker__")
+        else:
+            type_checker = func
 
         type_checker.set_return_checker(return_checker)
         type_checker.set_return_constraints(constraints)
@@ -91,7 +159,9 @@ def returns(return_type: type, constraints: tuple = ()):
     return wrapper
 
 
-@returns(int, constraints=((">=", 0), ("<", 100)))
+@retrieves("a", int, constraints=("positive",))
+@retrieves("b", int, constraints=("non-negative", ))
+@returns(int, constraints=("non-negative", ("<", 100)))
 def foo(a, b=-1, *args) -> int:
     """
     Some demo function.
@@ -104,5 +174,4 @@ def foo(a, b=-1, *args) -> int:
     return a + b * sum(args)
 
 
-print(foo(3, 4, 2, 3))
-print(foo.__call__)
+print(foo(3, -2, 2, 3))
