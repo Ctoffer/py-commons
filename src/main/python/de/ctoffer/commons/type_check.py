@@ -55,11 +55,21 @@ class Constraint:
             if a < 0:
                 raise ValueError(f"Constraint non-negative with value {a} not met!")
 
+        def non_none(a):
+            if a is None:
+                raise ValueError(f"Constraint non-none not met!")
+
+        def non_empty(a):
+            if a is None or (hasattr(a, "len") and len(a) == 0):
+                raise ValueError(f"Constraint non-empty sequence with value {a} is not met!")
+
         lookup = {
             "positive": positive,
             "negative": negative,
             "non-positive": non_positive,
-            "non-negative": non_negative
+            "non-negative": non_negative,
+            "non_none": non_none,
+            "non_empty": non_empty
         }
 
         return lookup[value]

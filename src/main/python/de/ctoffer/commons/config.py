@@ -1,6 +1,6 @@
 import functools
-from inspect import signature
 import re
+from inspect import signature
 from types import SimpleNamespace
 
 from singleton import singleton, classproperty
