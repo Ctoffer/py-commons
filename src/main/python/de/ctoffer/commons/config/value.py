@@ -1,9 +1,6 @@
-import functools
-import re
-from inspect import signature
 from types import SimpleNamespace
 
-from singleton import singleton, classproperty
+from src.main.python.de.ctoffer.commons.creational.singleton import singleton, classproperty
 
 
 @singleton
