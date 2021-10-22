@@ -1,0 +1,16 @@
+global_attr: 1
+nested_attr:
+  demo_list:
+    - x: yes
+      y: yes
+      xor: no
+    - x: yes
+      y: no
+      xor: yes
+    - x: no
+      y: yes
+      xor: yes
+    - x: no
+      y: no
+      xor: no
+  flat_attr: "Henlo World, It is I snek"
