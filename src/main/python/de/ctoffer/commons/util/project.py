@@ -25,17 +25,17 @@ class Project:
 
 class MavenProject(Project):
     def __init__(self, project_root: str):
-        self._project_name = os.path.dirname(project_root)
-        self._project_root = project_root
-        self._sourced_directory = normpath_join(self._project_root, "src")
+        self.project_name = os.path.dirname(project_root)
+        self.project_root = project_root
+        self.sourced_directory = normpath_join(self.project_root, "src")
 
-        self._main_directory = normpath_join(self._sourced_directory, "main")
-        self._main_python_source = normpath_join(self._main_directory, "python")
-        self._main_resources = normpath_join(self._main_directory, "resources")
+        self.main_directory = normpath_join(self.sourced_directory, "main")
+        self.main_python_source = normpath_join(self.main_directory, "python")
+        self.main_resources = normpath_join(self.main_directory, "resources")
 
-        self._test_directory = normpath_join(self._sourced_directory, "test")
-        self._test_python_source = normpath_join(self._test_directory, "python")
-        self._test_resources = normpath_join(self._test_directory, "resources")
+        self.test_directory = normpath_join(self.sourced_directory, "test")
+        self.test_python_source = normpath_join(self.test_directory, "python")
+        self.test_resources = normpath_join(self.test_directory, "resources")
 
 
 class ProjectStructure(ABC):
@@ -73,7 +73,7 @@ class ProjectManager:
         return self._project is not None
 
     def configure(self, file, structure=MavenProjectStructure):
-        self._project = structure.analyze(file)
+        self._project = structure().analyze(file)
 
     @property
     def resources(self):
@@ -81,9 +81,9 @@ class ProjectManager:
             raise ValueError("This ProjectManager is not initialized")
 
         if self._test_mode:
-            return self.project.main_resources
-        else:
             return self.project.test_resources
+        else:
+            return self.project.main_resources
 
     def test_mode(self):
         self._test_mode = True
