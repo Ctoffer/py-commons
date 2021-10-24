@@ -1,12 +1,23 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from math import inf as infinity
+from typing import Any, Callable, TypeVar
 
 from commons.creational.singleton import singleton
 from commons.util.project import load_resource, ProjectManager
 
 
-def container(sequence, frozen: bool = False, unique: bool = False, min_size: int = 0, max_size: int = None):
+class Container:
+    pass
+
+
+def container(
+        sequence,
+        frozen: bool = True,
+        unique: bool = False,
+        min_size: int = 0,
+        max_size: int = None
+):
     # TODO (Christopher): return a parser with this configuration, which converts a given sequence
     #      1. check size of given sequence [min_size,max_size]
     #      2. convert each entry [sequence.generic]
@@ -15,10 +26,26 @@ def container(sequence, frozen: bool = False, unique: bool = False, min_size: in
     #         2.3. call it with list element
     #      3. select data structure [frozen, unique]
     #      4. convert
+    return Container()
+
+
+class Unit:
     pass
 
 
-def create_init(annotations: dict):
+def unit(type_hint, non_null: bool = True):
+    # TODO (Christopher): Create a parser for this configuration
+    #   1. check if type_hint has specialized __init__
+    #   2. if not add it
+    #   3. convert input
+    return Unit()
+
+
+def ensure_init(type_hint):
+    pass
+
+
+def create_init(annotations: dict) -> Callable[[Any, ...], None]:
     # TODO (Christopher):
     #     return an __init__ implementation which matches the __annotations__
     #     For each annotation present provide an conversion function taking a kwarg and returned correctly parsed
@@ -26,27 +53,24 @@ def create_init(annotations: dict):
     pass
 
 
-def type_to_parser():
-    # TODO (Christopher):
-    #     decide on given type_hint which parser is most appropriate
-    #     primitives
-    #     container
-    #     fragment?
-    pass
+def type_to_parser(type_hint: Any) -> Callable[..., Any]:
+    if type_hint in (int, float, bool, str):
+        return lambda element: element
+    elif isinstance(type_hint, Container) or isinstance(type_hint, Unit):
+        return lambda element: type_hint(element)
+    else:
+        raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
 
 def config(file, *path, as_singleton=True):
     def enhance_type(cls):
-        print(cls.__annotations__)
-
-        # TODO(Christopher): Create new init loading the resource
-        def __init__(self, **kwargs):
+        def __init__(self):
             complete_path = [file] + list(path)
             complete_path[-1] = complete_path[-1] + ".yaml"
             attributes = load_resource(*complete_path)
 
-            for name, value in cls.__annotations__.items():
-                print(name, attributes[name], value)
+            initialize = create_init(cls.__annotations__)
+            initialize(self, attributes)
 
         cls.__init__ = __init__
 
@@ -69,14 +93,14 @@ class BooleanOperation:
 
 @dataclass(frozen=True)
 class NestedConfigFragment:
-    demo_list: Sequence[BooleanOperation]
+    demo_list: container(Sequence[BooleanOperation])
     flat_attr: str
 
 
 @config("my_config")
 class MyConfig:
     global_attr: int
-    nested_attr: NestedConfigFragment
+    nested_attr: unit(NestedConfigFragment)
 
 
 ProjectManager.instance.configure(__file__)
