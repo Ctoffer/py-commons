@@ -12,6 +12,9 @@ class Parameter:
     optional: bool = False
     empty: Any = None
 
+    def __call__(self, value):
+        raise NotImplementedError
+
 
 class Primitive(Parameter):
     def __init__(self, type_hint, optional: bool = False, empty: Any = None):
@@ -46,7 +49,7 @@ class Container(Parameter):
         if len(generic_arguments) == 0:
             raise ValueError("A container requires a Sequence[T] with defined T.")
 
-        self._elem_type = ensure_init(generic_arguments[0])
+        self._elem_type = _type_to_parser(generic_arguments[0])
         self._desired_container = Container.__containers[frozen, unique]
         self._min_size = min_size
         self._max_size = max_size
@@ -58,12 +61,25 @@ class Container(Parameter):
         if self._max_size is not None and self._max_size < len(sequence):
             raise ValueError("Too much elements provided.")
 
-        return self._desired_container(self._elem_type(**sequence_element) for sequence_element in sequence)
+        return self._desired_container(self._elem_type(sequence_element) for sequence_element in sequence)
+
+
+def _type_to_parser(type_hint: Any) -> Parameter:
+    if isinstance(type_hint, Parameter):
+        return type_hint
+    elif type_hint in (int, float, bool, str):
+        return Primitive(type_hint)
+    elif get_origin(type_hint) is AbcSequence:
+        return Container(type_hint)
+    elif is_dataclass(type_hint):
+        return Unit(type_hint)
+    else:
+        raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
 
 class Unit(Parameter):
     def __init__(self, type_hint, non_null: bool = True, optional: bool = False):
-        self._type_hint = ensure_init(type_hint)
+        self._type_hint = _ensure_init(type_hint)
         self._non_null = non_null
         super().__init__(optional=optional, empty=None)
 
@@ -74,16 +90,16 @@ class Unit(Parameter):
         return self._type_hint(**unit)
 
 
-def ensure_init(type_hint):
+def _ensure_init(type_hint):
     if not hasattr(type_hint, "__auto_configured_init__"):
-        type_hint.__init__ = create_init(type_hint.__annotations__)
+        type_hint.__init__ = _create_init(type_hint.__annotations__)
         setattr(type_hint, "__auto_configured_init__", True)
 
     return type_hint
 
 
-def create_init(annotations: dict) -> Callable[[Any, dict], None]:
-    mappers = {key: type_to_parser(value) for key, value in annotations.items()}
+def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
+    mappers = {key: _type_to_parser(value) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
         used_keys = set(kwargs.keys())
@@ -104,19 +120,6 @@ def create_init(annotations: dict) -> Callable[[Any, dict], None]:
     return __init__
 
 
-def type_to_parser(type_hint: Any) -> Parameter:
-    if isinstance(type_hint, Parameter):
-        return type_hint
-    elif type_hint in (int, float, bool, str):
-        return Primitive(type_hint)
-    elif get_origin(type_hint) is AbcSequence:
-        return Container(type_hint)
-    elif is_dataclass(type_hint):
-        return Unit(type_hint)
-    else:
-        raise ValueError(f"Unknown type_hint '{type_hint}'.")
-
-
 def config(file, *path, as_singleton=True):
     def enhance_type(cls):
         def __init__(self):
@@ -124,7 +127,7 @@ def config(file, *path, as_singleton=True):
             complete_path[-1] = complete_path[-1] + ".yaml"
             attributes = load_resource(*complete_path)
 
-            initialize = create_init(cls.__annotations__)
+            initialize = _create_init(cls.__annotations__)
             initialize(self, **attributes)
 
         cls.__init__ = __init__

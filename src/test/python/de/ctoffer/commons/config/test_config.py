@@ -17,6 +17,7 @@ class BooleanOperation:
 class NestedConfigFragment:
     demo_list: Sequence[BooleanOperation]
     primitive_list: Sequence[int]
+    array_2d: Sequence[Sequence[int]]
     flat_attr: str
 
 
@@ -32,3 +33,5 @@ global_config = MyConfig.instance
 print(global_config.global_attr)
 print(global_config.default_attr)
 print(global_config.nested_attr.demo_list[0])
+print(global_config.nested_attr.primitive_list)
+print(global_config.nested_attr.array_2d)

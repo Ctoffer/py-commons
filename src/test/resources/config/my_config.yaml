@@ -14,4 +14,5 @@ nested_attr:
       y: no
       xor: no
   primitive_list: [1, 2, 3, 4, 5]
+  array_2d: [[1,2,3], [4, 5, 6], [7,8,9]]
   flat_attr: "Henlo World, It is I snek"
