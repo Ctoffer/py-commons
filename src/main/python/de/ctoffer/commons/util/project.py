@@ -114,7 +114,7 @@ def load_resource(resource, *paths):
 
 
 def resource_path(resource, *paths):
-    return normpath_join(find_resources(), *paths, resource)
+    return normpath_join(find_resources(), resource, *paths)
 
 
 def find_resources() -> str:

@@ -125,7 +125,7 @@ class NestedConfigFragment:
     flat_attr: str
 
 
-@config("my_config")
+@config("config", "my_config")
 class MyConfig:
     global_attr: int
     default_attr: Primitive(float, optional=True, empty=3.5)
