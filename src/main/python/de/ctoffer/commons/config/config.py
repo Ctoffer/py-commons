@@ -1,9 +1,9 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Union
+from typing import Any, Callable
 
 from commons.creational.singleton import singleton
-from commons.util.project import load_resource, ProjectManager
+from commons.util.project import load_resource
 
 
 @dataclass
@@ -38,7 +38,8 @@ class Container(Parameter):
             max_size: int = None,
             optional: bool = False
     ):
-        self._elem_type = ensure_init(sequence.__args__)
+        # TODO (Christopher): if more than one generic parameter is provided -> error (?)
+        self._elem_type = ensure_init(sequence.__args__[0])
         self._desired_container = Container.__containers[frozen, unique]
         self._min_size = min_size
         self._max_size = max_size
@@ -50,19 +51,20 @@ class Container(Parameter):
         if self._max_size is not None and self._max_size < len(sequence):
             raise ValueError("Too much elements provided.")
 
-        return self._desired_container(self._elem_type(sequence_element) for sequence_element in sequence)
+        return self._desired_container(self._elem_type(**sequence_element) for sequence_element in sequence)
 
 
 class Unit(Parameter):
-    pass
+    def __init__(self, type_hint, non_null: bool = True, optional: bool = False):
+        self._type_hint = ensure_init(type_hint)
+        self._non_null = non_null
+        super().__init__(optional=optional, empty=None)
 
+    def __call__(self, unit: dict):
+        if unit is None and self._non_null:
+            raise ValueError("Non-null constraint violated.")
 
-def unit(type_hint, non_null: bool = True, optional: bool = False):
-    # TODO (Christopher): Create a parser for this configuration
-    #   1. check if type_hint has specialized __init__
-    #   2. if not add it
-    #   3. convert input
-    return Unit()
+        return self._type_hint(**unit)
 
 
 def ensure_init(type_hint):
@@ -73,7 +75,7 @@ def ensure_init(type_hint):
     return type_hint
 
 
-def create_init(annotations: dict) -> Callable[[Any, ...], None]:
+def create_init(annotations: dict) -> Callable[[Any, dict], None]:
     mappers = {key: type_to_parser(value) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
