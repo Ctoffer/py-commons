@@ -15,7 +15,8 @@ class BooleanOperation:
 
 @dataclass
 class NestedConfigFragment:
-    demo_list: Container(Sequence[BooleanOperation])
+    demo_list: Sequence[BooleanOperation]
+    primitive_list: Sequence[int]
     flat_attr: str
 
 
@@ -23,7 +24,7 @@ class NestedConfigFragment:
 class MyConfig:
     global_attr: int
     default_attr: Primitive(float, optional=True, empty=3.5)
-    nested_attr: Unit(NestedConfigFragment)
+    nested_attr: NestedConfigFragment
 
 
 ProjectManager.instance.configure(__file__).test_mode()

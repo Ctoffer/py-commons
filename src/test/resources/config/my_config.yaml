@@ -13,4 +13,5 @@ nested_attr:
     - x: no
       y: no
       xor: no
+  primitive_list: [1, 2, 3, 4, 5]
   flat_attr: "Henlo World, It is I snek"

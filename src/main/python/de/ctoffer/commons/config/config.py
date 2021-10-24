@@ -1,6 +1,7 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
-from typing import Any, Callable
+from collections.abc import Sequence as AbcSequence
+from dataclasses import dataclass, is_dataclass
+from typing import Any, Callable, get_origin, get_args
 
 from commons.creational.singleton import singleton
 from commons.util.project import load_resource
@@ -38,8 +39,14 @@ class Container(Parameter):
             max_size: int = None,
             optional: bool = False
     ):
-        # TODO (Christopher): if more than one generic parameter is provided -> error (?)
-        self._elem_type = ensure_init(sequence.__args__[0])
+        if get_origin(sequence) is not AbcSequence:
+            raise ValueError("A Container can only be created for a Sequence[T]")
+
+        generic_arguments = get_args(sequence)
+        if len(generic_arguments) == 0:
+            raise ValueError("A container requires a Sequence[T] with defined T.")
+
+        self._elem_type = ensure_init(generic_arguments[0])
         self._desired_container = Container.__containers[frozen, unique]
         self._min_size = min_size
         self._max_size = max_size
@@ -98,10 +105,14 @@ def create_init(annotations: dict) -> Callable[[Any, dict], None]:
 
 
 def type_to_parser(type_hint: Any) -> Parameter:
-    if type_hint in (int, float, bool, str):
-        return Primitive(type_hint)
-    elif isinstance(type_hint, Parameter):
+    if isinstance(type_hint, Parameter):
         return type_hint
+    elif type_hint in (int, float, bool, str):
+        return Primitive(type_hint)
+    elif get_origin(type_hint) is AbcSequence:
+        return Container(type_hint)
+    elif is_dataclass(type_hint):
+        return Unit(type_hint)
     else:
         raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
@@ -117,6 +128,7 @@ def config(file, *path, as_singleton=True):
             initialize(self, **attributes)
 
         cls.__init__ = __init__
+        # TODO (Christopher): Config should modify class to behave like frozen dataclass after init
 
         if as_singleton:
             result = singleton(cls)
