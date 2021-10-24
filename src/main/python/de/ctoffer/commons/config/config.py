@@ -1,13 +1,30 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from math import inf as infinity
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Union
 
 from commons.creational.singleton import singleton
 from commons.util.project import load_resource, ProjectManager
 
+@dataclass
+class Parameter:
+    optional: bool = False
+    empty: Any = None
 
-class Container:
+
+class Primitive(Parameter):
+    def __init__(self, type_hint, optional: bool = False, empty: Any = None):
+        self._type_hint = type_hint
+        super().__init__(optional=optional, empty=empty)
+
+    def __call__(self, value):
+        return value
+
+
+class Container(Parameter):
+    pass
+
+
+class Unit(Parameter):
     pass
 
 
@@ -16,7 +33,8 @@ def container(
         frozen: bool = True,
         unique: bool = False,
         min_size: int = 0,
-        max_size: int = None
+        max_size: int = None,
+        optional: bool = False
 ):
     # TODO (Christopher): return a parser with this configuration, which converts a given sequence
     #      1. check size of given sequence [min_size,max_size]
@@ -29,11 +47,7 @@ def container(
     return Container()
 
 
-class Unit:
-    pass
-
-
-def unit(type_hint, non_null: bool = True):
+def unit(type_hint, non_null: bool = True, optional: bool = False):
     # TODO (Christopher): Create a parser for this configuration
     #   1. check if type_hint has specialized __init__
     #   2. if not add it
@@ -46,18 +60,32 @@ def ensure_init(type_hint):
 
 
 def create_init(annotations: dict) -> Callable[[Any, ...], None]:
-    # TODO (Christopher):
-    #     return an __init__ implementation which matches the __annotations__
-    #     For each annotation present provide an conversion function taking a kwarg and returned correctly parsed
-    #     object
-    pass
+    mappers = {key: type_to_parser(value) for key, value in annotations.items()}
+
+    def __init__(self, **kwargs):
+        used_keys = set(kwargs.keys())
+
+        for key, mapper in mappers.items():
+            if mapper.optional and key not in kwargs:
+                setattr(self, key, mapper.empty)
+            elif not mapper.optional and key not in kwargs:
+                raise ValueError(f"Mandatory attribute '{key}' is missing.")
+            else:
+                used_keys.remove(key)
+                setattr(self, key, mapper(kwargs[key]))
+
+        if used_keys:
+            # TODO (Christopher): Use a logger instead.
+            print(f"[WARNING] During initialization of {type(self)} configured properties {used_keys} were not used.")
+
+    return __init__
 
 
-def type_to_parser(type_hint: Any) -> Callable[..., Any]:
+def type_to_parser(type_hint: Any) -> Parameter:
     if type_hint in (int, float, bool, str):
-        return lambda element: element
-    elif isinstance(type_hint, Container) or isinstance(type_hint, Unit):
-        return lambda element: type_hint(element)
+        return Primitive(type_hint)
+    elif isinstance(type_hint, Parameter):
+        return type_hint
     else:
         raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
@@ -70,7 +98,7 @@ def config(file, *path, as_singleton=True):
             attributes = load_resource(*complete_path)
 
             initialize = create_init(cls.__annotations__)
-            initialize(self, attributes)
+            initialize(self, **attributes)
 
         cls.__init__ = __init__
 
@@ -100,8 +128,11 @@ class NestedConfigFragment:
 @config("my_config")
 class MyConfig:
     global_attr: int
-    nested_attr: unit(NestedConfigFragment)
+    default_attr: Primitive(float, optional=True, empty=3.5)
+    # nested_attr: unit(NestedConfigFragment)
 
 
 ProjectManager.instance.configure(__file__)
 global_config = MyConfig.instance
+print(global_config.global_attr)
+print(global_config.default_attr)
