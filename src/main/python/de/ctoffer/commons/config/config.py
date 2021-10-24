@@ -5,6 +5,7 @@ from typing import Any, Callable, Union
 from commons.creational.singleton import singleton
 from commons.util.project import load_resource, ProjectManager
 
+
 @dataclass
 class Parameter:
     optional: bool = False
@@ -21,30 +22,39 @@ class Primitive(Parameter):
 
 
 class Container(Parameter):
-    pass
+    __containers = {
+        (False, False): list,
+        (True, False): tuple,
+        (False, True): set,
+        (True, True): frozenset
+    }
+
+    def __init__(
+            self,
+            sequence,
+            frozen: bool = True,
+            unique: bool = False,
+            min_size: int = 0,
+            max_size: int = None,
+            optional: bool = False
+    ):
+        self._elem_type = ensure_init(sequence.__args__)
+        self._desired_container = Container.__containers[frozen, unique]
+        self._min_size = min_size
+        self._max_size = max_size
+        super().__init__(optional=optional, empty=self._desired_container())
+
+    def __call__(self, sequence: Sequence):
+        if len(sequence) < self._min_size:
+            raise ValueError("Not enough elements provided.")
+        if self._max_size is not None and self._max_size < len(sequence):
+            raise ValueError("Too much elements provided.")
+
+        return self._desired_container(self._elem_type(sequence_element) for sequence_element in sequence)
 
 
 class Unit(Parameter):
     pass
-
-
-def container(
-        sequence,
-        frozen: bool = True,
-        unique: bool = False,
-        min_size: int = 0,
-        max_size: int = None,
-        optional: bool = False
-):
-    # TODO (Christopher): return a parser with this configuration, which converts a given sequence
-    #      1. check size of given sequence [min_size,max_size]
-    #      2. convert each entry [sequence.generic]
-    #         2.1. check if class has specialized __init__
-    #         2.2. if not add it
-    #         2.3. call it with list element
-    #      3. select data structure [frozen, unique]
-    #      4. convert
-    return Container()
 
 
 def unit(type_hint, non_null: bool = True, optional: bool = False):
@@ -56,7 +66,11 @@ def unit(type_hint, non_null: bool = True, optional: bool = False):
 
 
 def ensure_init(type_hint):
-    pass
+    if not hasattr(type_hint, "__auto_configured_init__"):
+        type_hint.__init__ = create_init(type_hint.__annotations__)
+        setattr(type_hint, "__auto_configured_init__", True)
+
+    return type_hint
 
 
 def create_init(annotations: dict) -> Callable[[Any, ...], None]:
@@ -110,29 +124,3 @@ def config(file, *path, as_singleton=True):
         return result
 
     return enhance_type
-
-
-@dataclass(frozen=True)
-class BooleanOperation:
-    x: bool
-    y: bool
-    xor: bool
-
-
-@dataclass(frozen=True)
-class NestedConfigFragment:
-    demo_list: container(Sequence[BooleanOperation])
-    flat_attr: str
-
-
-@config("config", "my_config")
-class MyConfig:
-    global_attr: int
-    default_attr: Primitive(float, optional=True, empty=3.5)
-    # nested_attr: unit(NestedConfigFragment)
-
-
-ProjectManager.instance.configure(__file__)
-global_config = MyConfig.instance
-print(global_config.global_attr)
-print(global_config.default_attr)

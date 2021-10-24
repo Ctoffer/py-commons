@@ -74,6 +74,7 @@ class ProjectManager:
 
     def configure(self, file, structure=MavenProjectStructure):
         self._project = structure().analyze(file)
+        return self
 
     @property
     def resources(self):
@@ -87,12 +88,15 @@ class ProjectManager:
 
     def test_mode(self):
         self._test_mode = True
+        return self
 
     def main_mode(self):
         self._test_mode = False
+        return self
 
     def reset(self):
         self._project = None
+        return self
 
 
 def load_resource(resource, *paths):
