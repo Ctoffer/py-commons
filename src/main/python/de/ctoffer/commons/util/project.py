@@ -99,6 +99,14 @@ class ProjectManager:
         return self
 
 
+def configure_project(file, structure=MavenProjectStructure, test_mode=False) -> ProjectManager:
+    manager = ProjectManager.instance.configure(file, structure=structure)
+    if test_mode:
+        manager = manager.test_mode()
+
+    return manager
+
+
 def load_resource(resource, *paths):
     path = resource_path(resource, *paths)
 

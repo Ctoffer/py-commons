@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from commons.config.config import Primitive, Container, config, Unit
-from commons.util.project import ProjectManager
+from commons.util.project import ProjectManager, configure_project
 
 
 @dataclass
@@ -27,7 +27,7 @@ class MyConfig:
     nested_attr: NestedConfigFragment
 
 
-ProjectManager.instance.configure(__file__).test_mode()
+configure_project(__file__, test_mode=True)
 global_config = MyConfig.instance
 print(global_config.global_attr)
 print(global_config.default_attr)
@@ -52,3 +52,4 @@ class MyConfig2:
 
 print(MyConfig2(id=0).text)
 print(MyConfig2(id=1).text)
+
