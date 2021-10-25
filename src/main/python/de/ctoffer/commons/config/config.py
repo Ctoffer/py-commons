@@ -155,12 +155,18 @@ def config(file, *path, as_singleton=True):
                     "No parent configuration found. "
                     "Use '..parent' to specify a path relative to your configuration."
                 )
+
             for elem in attributes["..parent"].split("/"):
                 if elem == "..":
                     del nested_resource_path[-1]
                 else:
                     nested_resource_path.append(elem)
+
             del attributes["..parent"]
+
+            if "..parent" in attributes and super_classes[2] == object:
+                raise ValueError(f"Missing parent class for configuration '{''.join(nested_resource_path)}'.")
+
             nested_resource_path = resolve_path(nested_resource_path, args, kwargs)
 
             extend_dict(annotations, super_classes[1].__annotations__)

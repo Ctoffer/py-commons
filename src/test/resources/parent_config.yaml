@@ -1,3 +1,2 @@
-attr_1: 1
+..parent: 'grandparent_config'
 attr_2: 2
-attr_3: 3

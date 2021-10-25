@@ -55,10 +55,14 @@ print(MyConfig2(id=1).text)
 
 
 @dataclass
-class ParentConfig:
+class GrandParentConfig:
     attr_1: int
-    attr_2: int
     attr_3: int
+
+
+@dataclass
+class ParentConfig(GrandParentConfig):
+    attr_2: int
 
 
 @config("config", "child_[0]_config", as_singleton=False)
