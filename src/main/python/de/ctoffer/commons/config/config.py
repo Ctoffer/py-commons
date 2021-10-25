@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from collections.abc import Sequence as AbcSequence
 from dataclasses import dataclass, is_dataclass
@@ -121,9 +122,25 @@ def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
 
 
 def config(file, *path, as_singleton=True):
+    def resolve_path_segment(path_segment: str, args: tuple, kwargs: dict) -> str:
+        indices = re.findall(r'[(\d+)]', path_segment)
+        indices = [int(index) for index in indices]
+        for index in indices:
+            path_segment = path_segment.replace(f"[{index}]", f"{args[index]}")
+
+        keys = re.findall(r'{(.*)}', path_segment)
+        for key in keys:
+            path_segment = path_segment.replace(f"{{{key}}}", f"{kwargs[key]}")
+
+        return path_segment
+
     def enhance_type(cls):
-        def __init__(self):
+        def __init__(self, *args, **kwargs):
+            if as_singleton and (args or kwargs):
+                raise ValueError("A singleton does not support dynamic paths")
+
             complete_path = [file] + list(path)
+            complete_path = [resolve_path_segment(segment, args, kwargs) for segment in complete_path]
             complete_path[-1] = complete_path[-1] + ".yaml"
             attributes = load_resource(*complete_path)
 

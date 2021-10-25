@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -35,3 +34,21 @@ print(global_config.default_attr)
 print(global_config.nested_attr.demo_list[0])
 print(global_config.nested_attr.primitive_list)
 print(global_config.nested_attr.array_2d)
+
+
+@config("config", "conf_text_[0]", as_singleton=False)
+class MyConfig2:
+    text: str
+
+
+print(MyConfig2(0).text)
+print(MyConfig2(1).text)
+
+
+@config("config", "conf_text_{id}", as_singleton=False)
+class MyConfig2:
+    text: str
+
+
+print(MyConfig2(id=0).text)
+print(MyConfig2(id=1).text)
