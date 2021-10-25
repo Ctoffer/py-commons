@@ -1,3 +1,4 @@
+import os.path
 import re
 from collections.abc import Sequence
 from collections.abc import Sequence as AbcSequence
@@ -121,6 +122,12 @@ def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
     return __init__
 
 
+def extend_dict(d1: dict, d2: dict) -> None:
+    for key, value in d2.items():
+        if key not in d1:
+            d1[key] = value
+
+
 def config(file, *path, as_singleton=True):
     def resolve_path_segment(path_segment: str, args: tuple, kwargs: dict) -> str:
         indices = re.findall(r'[(\d+)]', path_segment)
@@ -134,17 +141,45 @@ def config(file, *path, as_singleton=True):
 
         return path_segment
 
+    def resolve_path(some_path: list, args: tuple, kwargs: dict):
+        complete_path = [resolve_path_segment(segment, args, kwargs) for segment in some_path]
+        complete_path[-1] = complete_path[-1] + ".yaml"
+        return complete_path
+
+    def handle_superclasses(cls, complete_path: list, attributes: dict, annotations: dict, args: tuple, kwargs: dict):
+        super_classes = cls.mro()
+        nested_resource_path = complete_path[:-1]
+        while super_classes[1] != object:
+            if "..parent" not in attributes:
+                raise ValueError(
+                    "No parent configuration found. "
+                    "Use '..parent' to specify a path relative to your configuration."
+                )
+            for elem in attributes["..parent"].split("/"):
+                if elem == "..":
+                    del nested_resource_path[-1]
+                else:
+                    nested_resource_path.append(elem)
+            del attributes["..parent"]
+            nested_resource_path = resolve_path(nested_resource_path, args, kwargs)
+
+            extend_dict(annotations, super_classes[1].__annotations__)
+            extend_dict(attributes, load_resource(*nested_resource_path))
+
+            del super_classes[0]
+            nested_resource_path = nested_resource_path[:-1]
+
     def enhance_type(cls):
         def __init__(self, *args, **kwargs):
             if as_singleton and (args or kwargs):
                 raise ValueError("A singleton does not support dynamic paths")
 
-            complete_path = [file] + list(path)
-            complete_path = [resolve_path_segment(segment, args, kwargs) for segment in complete_path]
-            complete_path[-1] = complete_path[-1] + ".yaml"
+            complete_path = resolve_path([file] + list(path), args, kwargs)
             attributes = load_resource(*complete_path)
+            annotations = cls.__annotations__
+            handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
 
-            initialize = _create_init(cls.__annotations__)
+            initialize = _create_init(annotations)
             initialize(self, **attributes)
 
         cls.__init__ = __init__

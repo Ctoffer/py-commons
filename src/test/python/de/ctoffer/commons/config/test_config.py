@@ -53,3 +53,18 @@ class MyConfig2:
 print(MyConfig2(id=0).text)
 print(MyConfig2(id=1).text)
 
+
+@dataclass
+class ParentConfig:
+    attr_1: int
+    attr_2: int
+    attr_3: int
+
+
+@config("config", "child_[0]_config", as_singleton=False)
+class ChildConfig(ParentConfig):
+    attr_4: str
+
+
+child_config = ChildConfig(1)
+print(child_config.attr_1, child_config.attr_2, child_config.attr_3, child_config.attr_4)

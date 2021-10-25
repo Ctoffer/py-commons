@@ -1,0 +1,4 @@
+..parent: '../parent_config'
+attr_2: -2
+attr_3: -3
+attr_4: "This was not here before"
