@@ -113,6 +113,7 @@ def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
                 raise ValueError(f"Mandatory attribute '{key}' is missing.")
             else:
                 used_keys.remove(key)
+                # TODO (Christopher): convert kwarg if its a reference to a dictionary [loading file]
                 setattr(self, key, mapper(kwargs[key]))
 
         if used_keys:
