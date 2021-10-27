@@ -6,6 +6,7 @@ from dataclasses import dataclass, is_dataclass
 from typing import Any, Callable, get_origin, get_args
 
 from commons.creational.singleton import singleton
+from commons.util.container import traverse_dict
 from commons.util.project import load_resource
 
 
@@ -100,7 +101,7 @@ def _ensure_init(type_hint):
     return type_hint
 
 
-def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
+def _create_init(annotations: dict, resource_loader: Callable[[str], dict]) -> Callable[[Any, dict], None]:
     mappers = {key: _type_to_parser(value) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
@@ -113,8 +114,11 @@ def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
                 raise ValueError(f"Mandatory attribute '{key}' is missing.")
             else:
                 used_keys.remove(key)
-                # TODO (Christopher): convert kwarg if its a reference to a dictionary [loading file]
-                setattr(self, key, mapper(kwargs[key]))
+                value = kwargs[key]
+                if re.match(r'\.\.ref\(.*\)', value):
+                    value = resource_loader(value[6:-1])
+                    traverse_dict(value, None)  # TODO (Christopher): use correct mapper to resolve nested references
+                setattr(self, key, mapper(value))
 
         if used_keys:
             # TODO (Christopher): Use a logger instead.
@@ -160,6 +164,8 @@ def config(file, *path, as_singleton=True):
             for elem in attributes["..parent"].split("/"):
                 if elem == "..":
                     del nested_resource_path[-1]
+                elif elem == ".":
+                    continue
                 else:
                     nested_resource_path.append(elem)
 
@@ -176,6 +182,20 @@ def config(file, *path, as_singleton=True):
             del super_classes[0]
             nested_resource_path = nested_resource_path[:-1]
 
+    def resource_loader(root_path):
+        def loader(p: str) -> dict:
+            result = list(root_path)
+            for elem in p.split("/"):
+                if elem == "..":
+                    del result[-1]
+                elif elem == ".":
+                    continue
+                else:
+                    result.append(elem)
+            return load_resource(*result)
+
+        return loader
+
     def enhance_type(cls):
         def __init__(self, *args, **kwargs):
             if as_singleton and (args or kwargs):
@@ -186,7 +206,7 @@ def config(file, *path, as_singleton=True):
             annotations = cls.__annotations__
             handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
 
-            initialize = _create_init(annotations)
+            initialize = _create_init(annotations, resource_loader(complete_path))
             initialize(self, **attributes)
 
         cls.__init__ = __init__
