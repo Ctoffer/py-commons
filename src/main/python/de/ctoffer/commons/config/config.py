@@ -1,4 +1,3 @@
-import os.path
 import re
 from collections.abc import Sequence
 from collections.abc import Sequence as AbcSequence
@@ -188,8 +187,12 @@ def config(file, *path, as_singleton=True):
             initialize = _create_init(annotations)
             initialize(self, **attributes)
 
+        def __setattr__(self, value, name):
+            raise AttributeError(f"Can not set '{name}' to '{value}'")
+
         cls.__init__ = __init__
         # TODO (Christopher): Config should modify class to behave like frozen dataclass after init
+        cls.__setattr__ = __setattr__
 
         if as_singleton:
             result = singleton(cls)

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from commons.config.config import Primitive, Container, config, Unit
-from commons.util.project import ProjectManager, configure_project
+from commons.config.config import Primitive, config
+from commons.util.project import configure_project
 
 
 @dataclass
@@ -71,4 +71,5 @@ class ChildConfig(ParentConfig):
 
 
 child_config = ChildConfig(1)
+child_config.attr_1 = 5
 print(child_config.attr_1, child_config.attr_2, child_config.attr_3, child_config.attr_4)
