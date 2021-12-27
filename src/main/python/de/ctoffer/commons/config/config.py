@@ -182,6 +182,7 @@ def config(file, *path, as_singleton=True):
             complete_path = resolve_path([file] + list(path), args, kwargs)
             attributes = load_resource(*complete_path)
             annotations = cls.__annotations__
+            # FIXME (Christopher): Remove 'instance' annotation.
             handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
 
             initialize = _create_init(annotations)

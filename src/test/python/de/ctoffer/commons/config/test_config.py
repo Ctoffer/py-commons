@@ -22,6 +22,8 @@ class NestedConfigFragment:
 
 @config("config", "my_config")
 class MyConfig:
+    instance: 'MyConfig'
+
     global_attr: int
     default_attr: Primitive(float, optional=True, empty=3.5)
     nested_attr: NestedConfigFragment
