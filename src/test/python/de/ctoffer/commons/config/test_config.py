@@ -4,6 +4,7 @@ from typing import Sequence
 from commons.config.config import Primitive, config
 from commons.util.project import configure_project
 
+configure_project(__file__, test_mode=True)
 
 @dataclass
 class BooleanOperation:
@@ -29,7 +30,6 @@ class MyConfig:
     nested_attr: NestedConfigFragment
 
 
-configure_project(__file__, test_mode=True)
 global_config = MyConfig.instance
 print(global_config.global_attr)
 print(global_config.default_attr)
@@ -73,5 +73,8 @@ class ChildConfig(ParentConfig):
 
 
 child_config = ChildConfig(1)
-child_config.attr_1 = 5
+print(hash(child_config))
+print(hash(child_config))
+child_config.attr_1 = "ERROR"
+global_config.global_attr = "ERROR"
 print(child_config.attr_1, child_config.attr_2, child_config.attr_3, child_config.attr_4)

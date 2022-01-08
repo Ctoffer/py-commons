@@ -95,28 +95,41 @@ def _ensure_init(type_hint):
     if not hasattr(type_hint, "__auto_configured_init__"):
         type_hint.__init__ = _create_init(type_hint.__annotations__)
         setattr(type_hint, "__auto_configured_init__", True)
+        # todo other magic methods
 
     return type_hint
 
 
-def _create_init(annotations: dict) -> Callable[[Any, dict], None]:
+def _create_init(annotations: dict, super_annotations: dict) -> Callable[[Any, dict], None]:
     mappers = {key: _type_to_parser(value) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
+        if super_annotations:
+            super(type(self), self).__init__(**{key:value for key, value in kwargs.items() if key in super_annotations})
+
+        kwargs = {key:value for key, value in kwargs.items() if key in annotations}
         used_keys = set(kwargs.keys())
+        properties = dict()
 
         for key, mapper in mappers.items():
             if mapper.optional and key not in kwargs:
-                setattr(self, key, mapper.empty)
+                value = mapper.empty
+                properties[key] = value
             elif not mapper.optional and key not in kwargs:
                 raise ValueError(f"Mandatory attribute '{key}' is missing.")
             else:
                 used_keys.remove(key)
-                setattr(self, key, mapper(kwargs[key]))
+                value = mapper(kwargs[key])
+                properties[key] = value
 
         if used_keys:
             # TODO (Christopher): Use a logger instead.
             print(f"[WARNING] During initialization of {type(self)} configured properties {used_keys} were not used.")
+
+        self._key = properties
+        for key, value in properties.items():
+            print(key, value, hasattr(self, key))
+            setattr(self, key, value)
 
     return __init__
 
@@ -128,6 +141,8 @@ def extend_dict(d1: dict, d2: dict) -> None:
 
 
 def config(file, *path, as_singleton=True):
+    hash_code_proto = 0
+
     def resolve_path_segment(path_segment: str, args: tuple, kwargs: dict) -> str:
         indices = re.findall(r'[(\d+)]', path_segment)
         indices = [int(index) for index in indices]
@@ -148,7 +163,10 @@ def config(file, *path, as_singleton=True):
     def handle_superclasses(cls, complete_path: list, attributes: dict, annotations: dict, args: tuple, kwargs: dict):
         super_classes = cls.mro()
         nested_resource_path = complete_path[:-1]
+        number_of_super_classes = 0
+
         while super_classes[1] != object:
+            number_of_super_classes += 1
             if "..parent" not in attributes:
                 raise ValueError(
                     "No parent configuration found. "
@@ -174,7 +192,17 @@ def config(file, *path, as_singleton=True):
             del super_classes[0]
             nested_resource_path = nested_resource_path[:-1]
 
+        return number_of_super_classes
+
     def enhance_type(cls):
+        print("enhance_type", cls)
+        frozen_instances = set()
+        original_setattr = cls.__setattr__
+
+        nonlocal hash_code_proto
+        hash_code = hash_code_proto
+        hash_code_proto += 1
+
         def __init__(self, *args, **kwargs):
             if as_singleton and (args or kwargs):
                 raise ValueError("A singleton does not support dynamic paths")
@@ -182,18 +210,46 @@ def config(file, *path, as_singleton=True):
             complete_path = resolve_path([file] + list(path), args, kwargs)
             attributes = load_resource(*complete_path)
             annotations = cls.__annotations__
-            # FIXME (Christopher): Remove 'instance' annotation.
-            handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
+            if 'instance' in annotations and annotations['instance'] in str(cls):
+                del annotations['instance']
 
-            initialize = _create_init(annotations)
+            old_annotations = dict(annotations)
+            number_of_super_classes = handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
+            super_annotations = {key: value for key, value in annotations.items() if key not in old_annotations}
+            annotations = old_annotations
+            print(annotations, super_annotations, number_of_super_classes)
+
+            print(type(self))
+            initialize = _create_init(annotations, super_annotations)
             initialize(self, **attributes)
+            frozen_instances.add(self)
 
-        def __setattr__(self, value, name):
-            raise AttributeError(f"Can not set '{name}' to '{value}'")
+        def __setattr__(self, name, value):
+            if hasattr(self, "_key") and self in frozen_instances:
+                raise AttributeError(
+                    f"Can not set field '{name}' "
+                    f"to value '{value}' "
+                    f"on {type(self).__name__}@{hex(id(self))} "
+                    f"since Config objects are frozen."
+                )
+            else:
+                original_setattr(self, name, value)
+
+        def __hash__(self) -> int:
+            return hash_code
+
+        def __eq__(self, other: Any) -> bool:
+            if isinstance(other, type(self)):
+                result_flag = self._key.items() == other._key.items()
+            else:
+                result_flag = False
+
+            return result_flag
 
         cls.__init__ = __init__
-        # TODO (Christopher): Config should modify class to behave like frozen dataclass after init
         cls.__setattr__ = __setattr__
+        cls.__hash__ = __hash__
+        cls.__eq__ = __eq__
 
         if as_singleton:
             result = singleton(cls)
