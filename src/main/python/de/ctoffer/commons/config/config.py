@@ -65,22 +65,22 @@ class Container(Parameter):
         return self._desired_container(self._elem_type(sequence_element) for sequence_element in sequence)
 
 
-def _type_to_parser(type_hint: Any) -> Parameter:
+def _type_to_parser(type_hint: Any, frozen: bool = False) -> Parameter:
     if isinstance(type_hint, Parameter):
         return type_hint
     elif type_hint in (int, float, bool, str):
         return Primitive(type_hint)
     elif get_origin(type_hint) is AbcSequence:
-        return Container(type_hint)
+        return Container(type_hint, frozen=frozen)
     elif is_dataclass(type_hint):
-        return Unit(type_hint)
+        return Unit(type_hint, frozen=frozen)
     else:
         raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
 
 class Unit(Parameter):
-    def __init__(self, type_hint, non_null: bool = True, optional: bool = False):
-        self._type_hint = _ensure_init(type_hint)
+    def __init__(self, type_hint, non_null: bool = True, optional: bool = False, frozen=False):
+        self._type_hint = _ensure_init(type_hint, frozen=frozen)
         self._non_null = non_null
         super().__init__(optional=optional, empty=None)
 
@@ -91,23 +91,35 @@ class Unit(Parameter):
         return self._type_hint(**unit)
 
 
-def _ensure_init(type_hint):
+def _ensure_init(type_hint, frozen=False):
+    def __setattr__(self, name, value):
+        raise AttributeError(
+            f"Can not set field '{name}' "
+            f"to value '{value}' "
+            f"on {type(self).__name__}@{hex(id(self))} "
+            f"since Config objects are frozen."
+        )
+
     if not hasattr(type_hint, "__auto_configured_init__"):
-        type_hint.__init__ = _create_init(type_hint.__annotations__)
+        # FIXME (Christopher): super_annotations is empty, this might lead to conflicts if the dataclass has parents
+        setattr(type_hint, "__init__", _create_init(type_hint.__annotations__, dict(), frozen=frozen))
         setattr(type_hint, "__auto_configured_init__", True)
-        # todo other magic methods
+
+        if frozen:
+            setattr(type_hint, "__setattr__", __setattr__)
 
     return type_hint
 
 
-def _create_init(annotations: dict, super_annotations: dict) -> Callable[[Any, dict], None]:
-    mappers = {key: _type_to_parser(value) for key, value in annotations.items()}
+def _create_init(annotations: dict, super_annotations: dict, frozen:bool=False) -> Callable[[Any, dict], None]:
+    mappers = {key: _type_to_parser(value, frozen=frozen) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
         if super_annotations:
-            super(type(self), self).__init__(**{key:value for key, value in kwargs.items() if key in super_annotations})
+            super(type(self), self).__init__(
+                **{key: value for key, value in kwargs.items() if key in super_annotations})
 
-        kwargs = {key:value for key, value in kwargs.items() if key in annotations}
+        kwargs = {key: value for key, value in kwargs.items() if key in annotations}
         used_keys = set(kwargs.keys())
         properties = dict()
 
@@ -126,10 +138,9 @@ def _create_init(annotations: dict, super_annotations: dict) -> Callable[[Any, d
             # TODO (Christopher): Use a logger instead.
             print(f"[WARNING] During initialization of {type(self)} configured properties {used_keys} were not used.")
 
-        self._key = properties
+        object.__setattr__(self, "_key", properties)
         for key, value in properties.items():
-            print(key, value, hasattr(self, key))
-            setattr(self, key, value)
+            object.__setattr__(self, key, value)
 
     return __init__
 
@@ -140,7 +151,7 @@ def extend_dict(d1: dict, d2: dict) -> None:
             d1[key] = value
 
 
-def config(file, *path, as_singleton=True):
+def config(file, *path, as_singleton=True, frozen=False):
     hash_code_proto = 0
 
     def resolve_path_segment(path_segment: str, args: tuple, kwargs: dict) -> str:
@@ -195,8 +206,6 @@ def config(file, *path, as_singleton=True):
         return number_of_super_classes
 
     def enhance_type(cls):
-        print("enhance_type", cls)
-        frozen_instances = set()
         original_setattr = cls.__setattr__
 
         nonlocal hash_code_proto
@@ -217,15 +226,12 @@ def config(file, *path, as_singleton=True):
             number_of_super_classes = handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
             super_annotations = {key: value for key, value in annotations.items() if key not in old_annotations}
             annotations = old_annotations
-            print(annotations, super_annotations, number_of_super_classes)
 
-            print(type(self))
-            initialize = _create_init(annotations, super_annotations)
+            initialize = _create_init(annotations, super_annotations, frozen=frozen)
             initialize(self, **attributes)
-            frozen_instances.add(self)
 
         def __setattr__(self, name, value):
-            if hasattr(self, "_key") and self in frozen_instances:
+            if frozen:
                 raise AttributeError(
                     f"Can not set field '{name}' "
                     f"to value '{value}' "
@@ -248,8 +254,10 @@ def config(file, *path, as_singleton=True):
 
         cls.__init__ = __init__
         cls.__setattr__ = __setattr__
-        cls.__hash__ = __hash__
-        cls.__eq__ = __eq__
+
+        if frozen:
+            cls.__hash__ = __hash__
+            cls.__eq__ = __eq__
 
         if as_singleton:
             result = singleton(cls)

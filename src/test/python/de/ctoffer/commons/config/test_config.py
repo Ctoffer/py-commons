@@ -6,6 +6,7 @@ from commons.util.project import configure_project
 
 configure_project(__file__, test_mode=True)
 
+
 @dataclass
 class BooleanOperation:
     x: bool
@@ -30,6 +31,7 @@ class MyConfig:
     nested_attr: NestedConfigFragment
 
 
+# default sequence type = list, frozen config -> tuple
 global_config = MyConfig.instance
 print(global_config.global_attr)
 print(global_config.default_attr)
@@ -67,7 +69,7 @@ class ParentConfig(GrandParentConfig):
     attr_2: int
 
 
-@config("config", "child_[0]_config", as_singleton=False)
+@config("config", "child_[0]_config", as_singleton=False, frozen=True)
 class ChildConfig(ParentConfig):
     attr_4: str
 
