@@ -1,4 +1,3 @@
-import os.path
 import re
 from collections.abc import Sequence
 from collections.abc import Sequence as AbcSequence
@@ -6,7 +5,6 @@ from dataclasses import dataclass, is_dataclass
 from typing import Any, Callable, get_origin, get_args
 
 from commons.creational.singleton import singleton
-from commons.util.container import traverse_dict
 from commons.util.project import load_resource
 
 
@@ -67,22 +65,22 @@ class Container(Parameter):
         return self._desired_container(self._elem_type(sequence_element) for sequence_element in sequence)
 
 
-def _type_to_parser(type_hint: Any) -> Parameter:
+def _type_to_parser(type_hint: Any, frozen: bool = False) -> Parameter:
     if isinstance(type_hint, Parameter):
         return type_hint
     elif type_hint in (int, float, bool, str):
         return Primitive(type_hint)
     elif get_origin(type_hint) is AbcSequence:
-        return Container(type_hint)
+        return Container(type_hint, frozen=frozen)
     elif is_dataclass(type_hint):
-        return Unit(type_hint)
+        return Unit(type_hint, frozen=frozen)
     else:
         raise ValueError(f"Unknown type_hint '{type_hint}'.")
 
 
 class Unit(Parameter):
-    def __init__(self, type_hint, non_null: bool = True, optional: bool = False):
-        self._type_hint = _ensure_init(type_hint)
+    def __init__(self, type_hint, non_null: bool = True, optional: bool = False, frozen=False):
+        self._type_hint = _ensure_init(type_hint, frozen=frozen)
         self._non_null = non_null
         super().__init__(optional=optional, empty=None)
 
@@ -93,36 +91,56 @@ class Unit(Parameter):
         return self._type_hint(**unit)
 
 
-def _ensure_init(type_hint):
+def _ensure_init(type_hint, frozen=False):
+    def __setattr__(self, name, value):
+        raise AttributeError(
+            f"Can not set field '{name}' "
+            f"to value '{value}' "
+            f"on {type(self).__name__}@{hex(id(self))} "
+            f"since Config objects are frozen."
+        )
+
     if not hasattr(type_hint, "__auto_configured_init__"):
-        type_hint.__init__ = _create_init(type_hint.__annotations__)
+        # FIXME (Christopher): super_annotations is empty, this might lead to conflicts if the dataclass has parents
+        setattr(type_hint, "__init__", _create_init(type_hint.__annotations__, dict(), frozen=frozen))
         setattr(type_hint, "__auto_configured_init__", True)
+
+        if frozen:
+            setattr(type_hint, "__setattr__", __setattr__)
 
     return type_hint
 
 
-def _create_init(annotations: dict, resource_loader: Callable[[str], dict]) -> Callable[[Any, dict], None]:
-    mappers = {key: _type_to_parser(value) for key, value in annotations.items()}
+def _create_init(annotations: dict, super_annotations: dict, frozen:bool=False) -> Callable[[Any, dict], None]:
+    mappers = {key: _type_to_parser(value, frozen=frozen) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
+        if super_annotations:
+            super(type(self), self).__init__(
+                **{key: value for key, value in kwargs.items() if key in super_annotations})
+
+        kwargs = {key: value for key, value in kwargs.items() if key in annotations}
         used_keys = set(kwargs.keys())
+        properties = dict()
 
         for key, mapper in mappers.items():
             if mapper.optional and key not in kwargs:
-                setattr(self, key, mapper.empty)
+                value = mapper.empty
+                properties[key] = value
             elif not mapper.optional and key not in kwargs:
                 raise ValueError(f"Mandatory attribute '{key}' is missing.")
             else:
                 used_keys.remove(key)
-                value = kwargs[key]
-                if re.match(r'\.\.ref\(.*\)', value):
-                    value = resource_loader(value[6:-1])
-                    traverse_dict(value, None)  # TODO (Christopher): use correct mapper to resolve nested references
-                setattr(self, key, mapper(value))
+                value = mapper(kwargs[key])
+                properties[key] = value
 
         if used_keys:
             # TODO (Christopher): Use a logger instead.
             print(f"[WARNING] During initialization of {type(self)} configured properties {used_keys} were not used.")
+
+        object.__setattr__(self, "_key", properties)
+        for key, value in properties.items():
+            object.__setattr__(self, key, value)
 
     return __init__
 
@@ -133,7 +151,9 @@ def extend_dict(d1: dict, d2: dict) -> None:
             d1[key] = value
 
 
-def config(file, *path, as_singleton=True):
+def config(file, *path, as_singleton=True, frozen=False):
+    hash_code_proto = 0
+
     def resolve_path_segment(path_segment: str, args: tuple, kwargs: dict) -> str:
         indices = re.findall(r'[(\d+)]', path_segment)
         indices = [int(index) for index in indices]
@@ -154,7 +174,10 @@ def config(file, *path, as_singleton=True):
     def handle_superclasses(cls, complete_path: list, attributes: dict, annotations: dict, args: tuple, kwargs: dict):
         super_classes = cls.mro()
         nested_resource_path = complete_path[:-1]
+        number_of_super_classes = 0
+
         while super_classes[1] != object:
+            number_of_super_classes += 1
             if "..parent" not in attributes:
                 raise ValueError(
                     "No parent configuration found. "
@@ -164,8 +187,6 @@ def config(file, *path, as_singleton=True):
             for elem in attributes["..parent"].split("/"):
                 if elem == "..":
                     del nested_resource_path[-1]
-                elif elem == ".":
-                    continue
                 else:
                     nested_resource_path.append(elem)
 
@@ -182,21 +203,15 @@ def config(file, *path, as_singleton=True):
             del super_classes[0]
             nested_resource_path = nested_resource_path[:-1]
 
-    def resource_loader(root_path):
-        def loader(p: str) -> dict:
-            result = list(root_path)
-            for elem in p.split("/"):
-                if elem == "..":
-                    del result[-1]
-                elif elem == ".":
-                    continue
-                else:
-                    result.append(elem)
-            return load_resource(*result)
-
-        return loader
+        return number_of_super_classes
 
     def enhance_type(cls):
+        original_setattr = cls.__setattr__
+
+        nonlocal hash_code_proto
+        hash_code = hash_code_proto
+        hash_code_proto += 1
+
         def __init__(self, *args, **kwargs):
             if as_singleton and (args or kwargs):
                 raise ValueError("A singleton does not support dynamic paths")
@@ -204,13 +219,45 @@ def config(file, *path, as_singleton=True):
             complete_path = resolve_path([file] + list(path), args, kwargs)
             attributes = load_resource(*complete_path)
             annotations = cls.__annotations__
-            handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
+            if 'instance' in annotations and annotations['instance'] in str(cls):
+                del annotations['instance']
 
-            initialize = _create_init(annotations, resource_loader(complete_path))
+            old_annotations = dict(annotations)
+            number_of_super_classes = handle_superclasses(cls, complete_path, attributes, annotations, args, kwargs)
+            super_annotations = {key: value for key, value in annotations.items() if key not in old_annotations}
+            annotations = old_annotations
+
+            initialize = _create_init(annotations, super_annotations, frozen=frozen)
             initialize(self, **attributes)
 
+        def __setattr__(self, name, value):
+            if frozen:
+                raise AttributeError(
+                    f"Can not set field '{name}' "
+                    f"to value '{value}' "
+                    f"on {type(self).__name__}@{hex(id(self))} "
+                    f"since Config objects are frozen."
+                )
+            else:
+                original_setattr(self, name, value)
+
+        def __hash__(self) -> int:
+            return hash_code
+
+        def __eq__(self, other: Any) -> bool:
+            if isinstance(other, type(self)):
+                result_flag = self._key.items() == other._key.items()
+            else:
+                result_flag = False
+
+            return result_flag
+
         cls.__init__ = __init__
-        # TODO (Christopher): Config should modify class to behave like frozen dataclass after init
+        cls.__setattr__ = __setattr__
+
+        if frozen:
+            cls.__hash__ = __hash__
+            cls.__eq__ = __eq__
 
         if as_singleton:
             result = singleton(cls)

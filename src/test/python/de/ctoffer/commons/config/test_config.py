@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from commons.config.config import Primitive, Container, config, Unit
-from commons.util.project import ProjectManager, configure_project
+from commons.config.config import Primitive, config
+from commons.util.project import configure_project
+
+configure_project(__file__, test_mode=True)
 
 
 @dataclass
@@ -22,12 +24,14 @@ class NestedConfigFragment:
 
 @config("config", "my_config")
 class MyConfig:
+    instance: 'MyConfig'
+
     global_attr: int
     default_attr: Primitive(float, optional=True, empty=3.5)
     nested_attr: NestedConfigFragment
 
 
-configure_project(__file__, test_mode=True)
+# default sequence type = list, frozen config -> tuple
 global_config = MyConfig.instance
 print(global_config.global_attr)
 print(global_config.default_attr)
@@ -65,10 +69,14 @@ class ParentConfig(GrandParentConfig):
     attr_2: int
 
 
-@config("config", "child_[0]_config", as_singleton=False)
+@config("config", "child_[0]_config", as_singleton=False, frozen=True)
 class ChildConfig(ParentConfig):
     attr_4: str
 
 
 child_config = ChildConfig(1)
+print(hash(child_config))
+print(hash(child_config))
+child_config.attr_1 = "ERROR"
+global_config.global_attr = "ERROR"
 print(child_config.attr_1, child_config.attr_2, child_config.attr_3, child_config.attr_4)
