@@ -111,13 +111,14 @@ def _ensure_init(type_hint, frozen=False):
     return type_hint
 
 
-def _create_init(annotations: dict, super_annotations: dict, frozen:bool=False) -> Callable[[Any, dict], None]:
+def _create_init(annotations: dict, super_annotations: dict, frozen: bool = False) -> Callable[[Any, dict], None]:
     mappers = {key: _type_to_parser(value, frozen=frozen) for key, value in annotations.items()}
 
     def __init__(self, **kwargs):
         if super_annotations:
             super(type(self), self).__init__(
-                **{key: value for key, value in kwargs.items() if key in super_annotations})
+                **{key: value for key, value in kwargs.items() if key in super_annotations}
+            )
 
         kwargs = {key: value for key, value in kwargs.items() if key in annotations}
         used_keys = set(kwargs.keys())
