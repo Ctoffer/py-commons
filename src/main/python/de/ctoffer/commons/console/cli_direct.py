@@ -2,26 +2,9 @@ import argparse
 from dataclasses import dataclass
 from typing import TypeVar, Type, Union, Iterable, Callable, Any, Dict, List, Tuple
 
+from commons.console.cli_dto import PositionalArgument, Argument, CliInternalData
+
 T = TypeVar('T')
-
-
-@dataclass
-class PositionalArgument:
-    type: Type[T]
-    default: T = ...
-    description: str = ""
-    nargs: Union[int, str] = ...
-
-
-@dataclass
-class Argument:
-    type: Type[T]
-    short: str
-    long: str
-    default: T = ...
-    description: str = ""
-    nargs: Union[int, str] = ...
-    required: bool = False
 
 
 def transfer_non_empty_attribute(dictionary: Dict[str, Any], data: Any, attribute_name: str, empty: Any = ...) -> None:
@@ -95,13 +78,15 @@ class Command:
     description: str = ""
 
     def __call__(self, cls: Type[T]) -> Type[T]:
-        cls.__cli_name__ = self.name
-        cls.__cli_description__ = self.description
+        cli_data = CliInternalData()
+        cls.__cli__ = cli_data
+        cli_data.name = self.name
+        cli_data.description = self.description
 
         if self.subcommands:
-            cls.__cli_subcommands__ = {subcommand.__cli_name__: subcommand for subcommand in self.subcommands}
+            cli_data.subcommands = {subcommand.__cli__.name: subcommand for subcommand in self.subcommands}
         else:
-            cls.__cli_subcommands__ = dict()
+            cli_data.subcommands = dict()
 
         parser = argparse.ArgumentParser(
             prog=self.name,
@@ -111,14 +96,14 @@ class Command:
         sub_commands = self.subcommands
 
         def construct_parseable_arguments(nested_parser, parent=""):
-            parent_chain = "->".join((parent, cls.__cli_name__)) if parent else cls.__cli_name__
+            parent_chain = "->".join((parent, cli_data.name)) if parent else cli_data.name
             nested_parser.set_defaults(**{"__parent_chain__": parent_chain})
 
             if hasattr(cls, "__annotations__"):
                 listed_args = cls.__annotations__.items()
 
                 groups = group_arguments(listed_args)
-                cls.__cli_grouped_arguments__ = groups
+                cli_data.grouped_arguments = groups
 
                 add_argument_group_to_parser(
                     parser=nested_parser.add_argument_group("required named arguments"),
@@ -139,25 +124,25 @@ class Command:
             if sub_commands:
                 sub_parser = nested_parser.add_subparsers(title="sub commands", help="Available subcommands.")
                 for subcommand_type in sub_commands:
-                    subcommand_type.__cli_create_subparser__(
+                    subcommand_type.__cli__.create_subparser(
                         sub_parser.add_parser(
-                            subcommand_type.__cli_name__
+                            subcommand_type.__cli__.name
                         ), parent_chain
                     )
 
-        cls.__cli_create_subparser__ = construct_parseable_arguments
+        cli_data.create_subparser = construct_parseable_arguments
         construct_parseable_arguments(parser)
-        cls.__cli_parser__ = parser
+        cli_data.parser = parser
         old_init = cls.__init__
 
         def constructed_init(instance, namespace: Union[argparse.Namespace, Dict[str, Any]], parent=None):
             if parent:
                 instance.parent = parent
-            instance.name = cls.__cli_name__
-            instance.description = cls.__cli_description__
-            instance.available_subcommands = cls.__cli_subcommands__
+            instance.name = cli_data.name
+            instance.description = cli_data.description
+            instance.available_subcommands = cli_data.subcommands
 
-            layer_name = type(instance).__cli_name__
+            layer_name = type(instance).__cli__.name
             if isinstance(namespace, argparse.Namespace):
                 namespace = dict(**namespace.__dict__)
                 namespace["__parent_chain__"] = namespace["__parent_chain__"].split("->")
@@ -181,7 +166,7 @@ class Command:
             old_init(instance)
 
             if len(reduced_chain) >= 1:
-                subcommand_type = type(instance).__cli_subcommands__[reduced_chain[0]]
+                subcommand_type = type(instance).__cli__.subcommands[reduced_chain[0]]
                 subcommand_instance = subcommand_type(
                     namespace=reduced_scope,
                     parent=instance
@@ -191,6 +176,6 @@ class Command:
                 instance.__cli_run__ = instance.__call__
 
         cls.__init__ = constructed_init
-        cls.cli_help = lambda slf: cls.__cli_parser__.format_help().split('\n')
+        cls.cli_help = lambda slf: cli_data.parser.format_help().split('\n')
 
         return cls

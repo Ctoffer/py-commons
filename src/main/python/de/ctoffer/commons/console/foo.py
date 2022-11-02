@@ -1,4 +1,5 @@
-from commons.console.cli_direct import Command, Argument, run_command, PositionalArgument
+from commons.console.cli import run_command
+from commons.console.cli_direct import Command, Argument, PositionalArgument
 
 
 @Command(
