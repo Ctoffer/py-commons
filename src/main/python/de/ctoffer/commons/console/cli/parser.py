@@ -19,8 +19,18 @@ argument = NamedArgument(
     validation=lambda s: len(s) > 0 and all('0' <= c <= '9' for c in s),
     mapping=int
 )
+list_argument = NamedArgument(
+    type=List[int],
+    short_name="i",
+    name="integers",
+    display_name="argument",
+    required=True,
+    number_of_arguments=ArgumentFrequency.ONE_OR_MORE
+)
 
+add_argument("larg", parser, list_argument)
 add_argument("arg", parser, argument)
+
 
 subparsers = parser.add_subparsers()
 subparser1 = subparsers.add_parser("sub1")
@@ -30,7 +40,7 @@ subparser2 = subparsers.add_parser("sub2")
 subparser2.add_argument("-b", "--bar")
 
 print(parser.format_help())
-print(parser.parse_args(["-a", "3", "sub1", "-f", "fooValue"]))
+print(parser.parse_args(["-a", "3", "-i", "1", "2", "3", "sub1", "-f", "fooValue"]))
 exit(0)
 set1 = parser.parse_args(["sub1", "-f", "fooValue"])
 set2 = parser.parse_args(["-a", "aValue", "sub1", "-f", "fooValue"])

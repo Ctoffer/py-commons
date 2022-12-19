@@ -1,12 +1,50 @@
 import argparse
+import pathlib
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from enum import Enum
-from typing import Type, Any, TypeVar, Callable, Union, Dict, List, Tuple
+from typing import Type, Any, TypeVar, Callable, Union, Dict, List, Tuple, Set, Iterable, get_args, get_origin
 
+from commons.console.cli.argparse_actions import PathMapperAction, StrMapperAction, BoolMapperAction, FloatMapperAction, \
+    IntMapperAction, IntSetMapperAction, FloatSetMapperAction, BoolSetMapperAction, StrSetMapperAction, \
+    PathSetMapperAction, IntTupleMapperAction, FloatTupleMapperAction, BoolTupleMapperAction, StrTupleMapperAction, \
+    PathTupleMapperAction, IntListMapperAction, FloatListMapperAction, BoolListMapperAction, StrListMapperAction, \
+    PathListMapperAction
 from commons.console.cli.dialog import InputDialog
+from commons.util.typing_support import expand_type_combinations
 
 T = TypeVar('T')
+SupportedBaseTypes = Union[int, float, bool, str, pathlib.Path]
+
+SUPPORTED_TYPES = expand_type_combinations((
+    int, float, bool, str, pathlib.Path, List[SupportedBaseTypes], Set[SupportedBaseTypes], Tuple[SupportedBaseTypes]
+))
+
+SUPPORTED_TYPE_ACTIONS = {
+    int: IntMapperAction,
+    float: FloatMapperAction,
+    bool: BoolMapperAction,
+    str: StrMapperAction,
+    pathlib.Path: PathMapperAction,
+
+    Set[int]: IntSetMapperAction,
+    Set[float]: FloatSetMapperAction,
+    Set[bool]: BoolSetMapperAction,
+    Set[str]: StrSetMapperAction,
+    Set[pathlib.Path]: PathSetMapperAction,
+
+    Tuple[int]: IntTupleMapperAction,
+    Tuple[float]: FloatTupleMapperAction,
+    Tuple[bool]: BoolTupleMapperAction,
+    Tuple[str]: StrTupleMapperAction,
+    Tuple[pathlib.Path]: PathTupleMapperAction,
+
+    List[int]: IntListMapperAction,
+    List[float]: FloatListMapperAction,
+    List[bool]: BoolListMapperAction,
+    List[str]: StrListMapperAction,
+    List[pathlib.Path]: PathListMapperAction,
+}
 
 
 class ArgumentFrequency(Enum):
@@ -98,6 +136,7 @@ def add_action(
             super().__init__(**kwargs)
             self._validation = argument.validation
             self._mapping = argument.mapping
+            self._on_mapping_failed = argument.on_mapping_failed
 
         def __call__(
                 self,
@@ -106,11 +145,22 @@ def add_action(
                 values,
                 option_string=None
         ):
-            # TODO (Ctoffer): Handle all cases.
+            def mapper(value):
+                if self._mapping is not ...:
+                    try:
+                        r = self._mapping(value)
+                    except Exception as error:
+                        if self._on_mapping_failed is not ...:
+                            r = self._on_mapping_failed(error, value, self.default)
+                else:
+                    raise ValueError(f"No mapper configured for {option_string}")
+
+                return r
+
             if self._validation is not ... and self._validation(values):
-                result = self._mapping(values)
+                result = mapper(values)
             elif self._validation is ... and self._mapping is not ...:
-                result = self._mapping(values)
+                result = mapper(values)
             elif self.default is not ...:
                 result = self.default
             else:
@@ -121,4 +171,7 @@ def add_action(
     if type(argument) == Flag:
         kwargs["action"] = "store_true" if argument.represents_true else "store_false"
     else:
-        kwargs["action"] = ActionProxy
+        if argument.mapping is ... and argument.type in SUPPORTED_TYPES:
+            kwargs["action"] = SUPPORTED_TYPE_ACTIONS[argument.type]
+        else:
+            kwargs["action"] = ActionProxy
