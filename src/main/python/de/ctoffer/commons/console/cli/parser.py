@@ -49,6 +49,20 @@ set3 = parser.parse_args(["-a", "aValue"])
 print(set1, set2, set3)
 print(parser.format_help())
 
+class ArgParser:
+    def __init__(
+            self
+    ):
+        self._parser = parser
+        self._subparsers = dict()
+
+    def add_argument(self, destination, argument) -> 'ArgParser':
+        add_argument(
+            destination,
+            self._parser,
+            argument
+        )
+        return self
 
 class Command:
     def __init__(self, name: str, subcommands: List[Any], description: str):
