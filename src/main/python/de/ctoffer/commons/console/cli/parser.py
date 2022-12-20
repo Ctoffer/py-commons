@@ -1,7 +1,7 @@
 import argparse
 from typing import List, Any
 
-from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_argument
+from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_argument, Argument
 
 parser = argparse.ArgumentParser(
     prog="prog",
@@ -51,18 +51,33 @@ print(parser.format_help())
 
 class ArgParser:
     def __init__(
-            self
+            self,
+            parser: argparse.ArgumentParser
     ):
         self._parser = parser
         self._subparsers = dict()
 
-    def add_argument(self, destination, argument) -> 'ArgParser':
+    def add_argument(
+            self,
+            destination: str,
+            argument: Argument
+    ) -> 'ArgParser':
         add_argument(
             destination,
             self._parser,
             argument
         )
         return self
+
+    def add_subparser(
+            self,
+            sub_command_name: str
+    ):
+        result = ArgParser(argparse.ArgumentParser(sub_command_name))
+        self._subparsers[sub_command_name] = result
+        # TODO (Christopher): Update help texts
+        return result
+
 
 class Command:
     def __init__(self, name: str, subcommands: List[Any], description: str):
