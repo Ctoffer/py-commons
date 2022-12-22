@@ -57,8 +57,8 @@ class ArgumentFrequency(Enum):
 class Argument:
     name: str
     type: Type[T]
-    display_name: str
-    number_of_arguments: Union[int, ArgumentFrequency]
+    number_of_arguments: Union[None, int, ArgumentFrequency] = None
+    display_name: str = ...
     validation: Callable[[T], bool] = ...
     mapping: Callable[[str], T] = ...
     on_mapping_failed: Callable[[Union[Exception, Tuple[Exception]], str, T], T] = ...
@@ -120,6 +120,9 @@ def prepare_names(
 
         args.append(f"-{short_name}")
 
+    if argument.display_name is ...:
+        argument.display_name = argument.name
+
     args.append(f"{argument.name}" if type(argument) == PositionalArgument else f"--{argument.name}")
     return args
 
@@ -152,6 +155,8 @@ def add_action(
                     except Exception as error:
                         if self._on_mapping_failed is not ...:
                             r = self._on_mapping_failed(error, value, self.default)
+                        else:
+                            r = None
                 else:
                     raise ValueError(f"No mapper configured for {option_string}")
 
@@ -170,8 +175,7 @@ def add_action(
 
     if type(argument) == Flag:
         kwargs["action"] = "store_true" if argument.represents_true else "store_false"
+    elif argument.mapping is ... and argument.type in SUPPORTED_TYPES:
+        kwargs["action"] = SUPPORTED_TYPE_ACTIONS[argument.type]
     else:
-        if argument.mapping is ... and argument.type in SUPPORTED_TYPES:
-            kwargs["action"] = SUPPORTED_TYPE_ACTIONS[argument.type]
-        else:
-            kwargs["action"] = ActionProxy
+        kwargs["action"] = ActionProxy
