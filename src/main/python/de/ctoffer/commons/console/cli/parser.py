@@ -5,52 +5,6 @@ import numpy as np
 
 from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_argument, Argument
 
-parser = argparse.ArgumentParser(
-    prog="prog",
-    exit_on_error=True
-)
-parser.add_argument("-b", "--barg", nargs="?", required=False)
-
-argument = NamedArgument(
-    type=int,
-    short_name="a",
-    name="arg",
-    display_name="argument",
-    required=True,
-    number_of_arguments=ArgumentFrequency.OPTIONAL,
-    validation=lambda s: len(s) > 0 and all('0' <= c <= '9' for c in s),
-    mapping=int
-)
-list_argument = NamedArgument(
-    type=List[int],
-    short_name="i",
-    name="integers",
-    display_name="argument",
-    required=True,
-    number_of_arguments=ArgumentFrequency.ONE_OR_MORE
-)
-
-add_argument("larg", parser, list_argument)
-add_argument("arg", parser, argument)
-
-subparsers = parser.add_subparsers()
-subparser1 = subparsers.add_parser("sub1")
-subparser1.add_argument("-f", "--foo")
-
-subparser2 = subparsers.add_parser("sub2")
-subparser2.add_argument("-b", "--bar")
-
-
-# print(parser.format_help())
-# print(parser.parse_args(["-a", "3", "-i", "1", "2", "3", "sub1", "-f", "fooValue"]))
-# exit(0)
-# set1 = parser.parse_args(["sub1", "-f", "fooValue"])
-# set2 = parser.parse_args(["-a", "aValue", "sub1", "-f", "fooValue"])
-# set3 = parser.parse_args(["-a", "aValue"])
-
-# print(set1, set2, set3)
-# print(parser.format_help())
-
 
 class ArgParser:
     def __init__(
@@ -71,7 +25,7 @@ class ArgParser:
             argument: Argument
     ) -> 'ArgParser':
         add_argument(
-            f"{'->'.join((*self._parent_chain, self._name))}.{destination}",
+            destination,
             self._parser,
             argument
         )
@@ -103,16 +57,20 @@ class ArgParser:
 
         main_args, sub_args = arguments[:index], arguments[index if index is not None else len(arguments):]
         main_name_space = self._parser.parse_args(main_args)
-        main_name_space = dict(**main_name_space.__dict__)
+        main_name_space = dict(
+            __name__=self._name,
+            __args__=dict(**main_name_space.__dict__)
+        )
 
         if sub_args:
             sub_name_space = self._subparsers[sub_command].parse(sub_args[1:])
-            main_name_space.update(sub_name_space)
+            main_name_space["__sub__"] = sub_name_space
 
-        # TODO (Ctoffer): Create class which supports relative attribute resolution
+        # TODO (Ctoffer): Maybe use DTO here?
         return main_name_space
 
 
+# TODO (Ctoffer): Make this a test case
 parser = ArgParser(
     "prog"
 ).add_argument(
@@ -159,23 +117,3 @@ parser.add_subparser("sub2").add_argument(
 
 print(parser.parse(["-a", "3", "-i", "1", "2", "3"]))
 print(parser.parse(["-a", "3", "-i", "1", "2", "3", "sub1", "-f", "foo value"]))
-
-
-class Command:
-    def __init__(self, name: str, subcommands: List[Any], description: str):
-        pass
-
-    def __call__(self, *args, **kwargs):
-        pass
-
-
-@Command(
-    name="",
-    subcommands=(),
-    description=""
-)
-class FooCommand:
-    debug: ...
-
-    def __call__(self):
-        pass
