@@ -58,7 +58,7 @@ class Argument:
     name: str
     type: Type[T]
     number_of_arguments: Union[None, int, ArgumentFrequency] = None
-    display_name: str = ...
+    display_name: str = None
     validation: Callable[[T], bool] = ...
     mapping: Callable[[str], T] = ...
     on_mapping_failed: Callable[[Union[Exception, Tuple[Exception]], str, T], T] = ...
@@ -96,11 +96,13 @@ def add_argument(
 
     kwargs["dest"] = destination_of_binding
     kwargs["help"] = argument.help_text
-    kwargs["nargs"] = argument.number_of_arguments.value \
-        if type(argument.number_of_arguments) == ArgumentFrequency \
-        else argument.number_of_arguments
-    kwargs["metavar"] = argument.display_name
-    kwargs["required"] = argument.required
+    if type(argument) != Flag:
+        kwargs["nargs"] = argument.number_of_arguments.value \
+            if type(argument.number_of_arguments) == ArgumentFrequency \
+            else argument.number_of_arguments
+        kwargs["metavar"] = argument.display_name
+    if type(argument) != PositionalArgument:
+        kwargs["required"] = argument.required
 
     add_action(kwargs, argument)
 
@@ -113,7 +115,10 @@ def prepare_names(
         argument: Union[NamedArgument, Argument]
 ) -> List[str]:
     args = list()
-    if type(argument) == NamedArgument:
+    if type(argument) == PositionalArgument:
+        return args
+
+    elif type(argument) == NamedArgument:
         short_name = argument.short_name
         if short_name is None:
             short_name = argument.name[0]
