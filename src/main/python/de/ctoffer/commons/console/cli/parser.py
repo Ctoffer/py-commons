@@ -171,11 +171,14 @@ class ArgParser:
             return
 
         lines.append(f"{title}:")
+        # TODO (Ctoffer): Complexitiy is growing, maybe use pandas Dataframe or custom class?
         table = {
-            "short_names": list(),
-            "names": list(),
-            "display_names": list(),
-            "help_texts": list()
+            "short_name": list(),
+            "name": list(),
+            "display_name": list(),
+            "help_text": list(),
+            "required": list(),
+            "number_of_arguments": list()
         }
         number_of_table_rows = 0
 
@@ -188,33 +191,40 @@ class ArgParser:
             name = argument.name if type(argument) == PositionalArgument else f"--{argument.name}"
             display_name = argument.display_name if argument.display_name is not None else ""
 
-            table["short_names"].append(short_name)
-            table["names"].append(name)
-            table["display_names"].append(display_name)
-            table["help_texts"].append(argument.help_text)
+            table["short_name"].append(short_name)
+            table["name"].append(name)
+            table["display_name"].append(display_name)
+            table["help_text"].append(argument.help_text)
+            table["required"].append(argument.required)
+            table["number_of_arguments"].append(argument.number_of_arguments)
             number_of_table_rows += 1
 
-        # FIXME (Ctoffer): Realign columns, so help text isn't ugly.
+        table_sizes = {k: max(map(len, column)) for k, column in table.items() if k in ("short_name", "name", "display_name")}
 
-        format_line = "   {short_name}{name:<20s}{display_name} {help_text}"
-        for argument in segment_data:
-            if isinstance(argument, NamedArgument) and argument.short_name is not None:
-                short_name = f"-{argument.short_name}, "
-            else:
-                short_name = ""
+        format_line = f"   {{short_name:<{table_sizes['short_name']}s}}" \
+                      f"{{name:<{table_sizes['name']}s}} " \
+                      f"{{display_name:<{table_sizes['display_name']}s}}" \
+                      f"{{help_text}}"
 
-            name = argument.name if type(argument) == PositionalArgument else f"--{argument.name}"
-            display_name = argument.display_name if argument.display_name is not None else ""
-            help_text = argument.help_text
+        for i in range(number_of_table_rows):
+            short_name = table["short_name"][i]
+            name = table["name"][i]
+            display_name = table["display_name"][i]
+            help_text = table["help_text"][i]
+            required = table["required"][i]
+            number_of_arguments = table["number_of_arguments"][i]
 
             lines[_INDEX_OF_USAGE].insert(-1, build_usage_help_segment(
-                short_name[:-2], name, display_name, argument.required, argument.number_of_arguments
+                short_name[:-2], name, display_name, required, number_of_arguments
             ))
+            display_name = map_display_name(display_name, number_of_arguments)
+            if display_name:
+                display_name = display_name + " "
             lines.append(
                 format_line.format(
                     short_name=short_name,
                     name=name,
-                    display_name=map_display_name(display_name, argument.number_of_arguments),
+                    display_name=display_name,
                     help_text=help_text
                 ).rstrip()
             )

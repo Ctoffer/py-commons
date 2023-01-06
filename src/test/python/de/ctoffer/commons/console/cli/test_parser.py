@@ -20,9 +20,11 @@ def standard_parser() -> ArgParser:
     ).add_argument(
         "carg", NamedArgument(type=int, name="cargument", required=True, number_of_arguments=ArgumentFrequency.OPTIONAL)
     ).add_argument(
-        "darg", NamedArgument(type=List[int], name="dargument", required=False, number_of_arguments=ArgumentFrequency.ZERO_OR_MORE)
+        "darg", NamedArgument(type=List[int], name="dargument", required=False,
+                              number_of_arguments=ArgumentFrequency.ZERO_OR_MORE)
     ).add_argument(
-        "earg", NamedArgument(type=List[int], name="eargument", required=False, number_of_arguments=ArgumentFrequency.ONE_OR_MORE)
+        "earg", NamedArgument(type=List[int], name="eargument", required=False,
+                              number_of_arguments=ArgumentFrequency.ONE_OR_MORE)
     ).add_argument(
         "flag", Flag(type=bool, name="flag")
     ).add_argument(
@@ -84,42 +86,21 @@ class TestHelpText:
             self,
             standard_parser: ArgParser
     ):
-        """
-        usage: prog [-h] [-a AARG] -b BARG -c [CARG] [-d [DARG ...]]
-                    [-e EARG [EARG ...]] [--flag]
-                    parg qarg
-
-        positional arguments:
-          parg
-          qarg
-
-        optional arguments:
-          -h, --help            show this help message and exit
-          -a AARG, --aargument AARG
-          -b BARG, --bargument BARG
-          -c [CARG], --cargument [CARG]
-          -d [DARG ...], --dargument [DARG ...]
-          -e EARG [EARG ...], --eargument EARG [EARG ...]
-          --flag
-
-        :param standard_parser:
-        :return:
-        """
-        expected_text="""Usage:
+        expected_text = """Usage:
    prog [-h] [-f] -b BARG -c [CARG] [-a AARG] [-d [DARG ...]] [-e EARG [EARG ...]] pargument qargument 
 
 flags:
-   -h, --help               show this help message and exit
+   -h, --help show this help message and exit
    -f, --flag
 
 required named arguments:
-   -b, --bargument         BARG
-   -c, --cargument         [CARG]
+   -b, --bargument BARG
+   -c, --cargument [CARG]
 
 optional named arguments:
-   -a, --aargument         AARG
-   -d, --dargument         [DARG ...]
-   -e, --eargument         EARG [EARG ...]
+   -a, --aargument AARG
+   -d, --dargument [DARG ...]
+   -e, --eargument EARG [EARG ...]
 
 positional arguments:
    pargument
@@ -131,18 +112,6 @@ positional arguments:
             self,
             nested_parser: ArgParser
     ):
-        """
-        prog [-h] -a [argument] -i argument [argument ...]
-
-        optional arguments:
-          -h, --help            show this help message and exit
-          -a [argument], --arg [argument]
-          -i argument [argument ...], --integers argument [argument ...]
-
-        :param nested_parser:
-        :return:
-        """
-
         expected_text = """Usage:
    prog [-h] -a [argument] -i argument [argument ...] {sub1,sub2}
 
@@ -151,11 +120,11 @@ sub1
 sub2  
 
 flags:
-   -h, --help               show this help message and exit
+   -h, --help show this help message and exit
 
 required named arguments:
-   -a, --arg               [argument]
-   -i, --integers          argument [argument ...]
+   -a, --arg      [argument]
+   -i, --integers argument [argument ...]
 """
 
         assert_equals(actual=nested_parser.help(), expected=expected_text)
