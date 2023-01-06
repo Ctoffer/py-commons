@@ -10,6 +10,7 @@ from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_a
 
 _INDEX_OF_USAGE = 1
 
+
 @dataclass
 class ParsedArguments:
     name: str
@@ -166,6 +167,9 @@ class ArgParser:
             segment_data: List[Argument],
             title: str
     ):
+        if not segment_data:
+            return
+
         lines.append(f"{title}:")
         table = {
             "short_names": list(),
@@ -250,9 +254,9 @@ def map_display_name(
 
 
 # TODO (Ctoffer): Make stackable iterative constraints compatible with error_handler, logging, time_measurement
-#@constraint(Scope.Parameter, applies_to="name", enforce=NotEmpty)
-#@constraint(Scope.Parameter, applies_to="number_of_arguments", enforce=StrictTypeCheck)
-#@constraint(Scope.Return, enforce=(StrictTypeCheck, NotEmpty))
+# @constraint(Scope.Parameter, applies_to="name", enforce=NotEmpty)
+# @constraint(Scope.Parameter, applies_to="number_of_arguments", enforce=StrictTypeCheck)
+# @constraint(Scope.Return, enforce=(StrictTypeCheck, NotEmpty))
 def build_usage_help_segment(
         short_name: str,
         name: str,

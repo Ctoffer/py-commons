@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List
 
 import pytest
 
@@ -105,7 +105,27 @@ class TestHelpText:
         :param standard_parser:
         :return:
         """
-        print(standard_parser.help())
+        expected_text="""Usage:
+   prog [-h] [-f] -b BARG -c [CARG] [-a AARG] [-d [DARG ...]] [-e EARG [EARG ...]] pargument qargument 
+
+flags:
+   -h, --help               show this help message and exit
+   -f, --flag
+
+required named arguments:
+   -b, --bargument         BARG
+   -c, --cargument         [CARG]
+
+optional named arguments:
+   -a, --aargument         AARG
+   -d, --dargument         [DARG ...]
+   -e, --eargument         EARG [EARG ...]
+
+positional arguments:
+   pargument
+   qargument
+"""
+        assert_equals(expected=expected_text, actual=standard_parser.help())
 
     def test_help_text_nested(
             self,
@@ -123,10 +143,22 @@ class TestHelpText:
         :return:
         """
 
-        help_text = nested_parser.help().split("\n")
-        print(nested_parser.help())
+        expected_text = """Usage:
+   prog [-h] -a [argument] -i argument [argument ...] {sub1,sub2}
 
-        assert_equals(actual=help_text, expected=[""])
+subcommands:
+sub1  
+sub2  
+
+flags:
+   -h, --help               show this help message and exit
+
+required named arguments:
+   -a, --arg               [argument]
+   -i, --integers          argument [argument ...]
+"""
+
+        assert_equals(actual=nested_parser.help(), expected=expected_text)
 
 
 class TestSubCommand:
