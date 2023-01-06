@@ -80,6 +80,7 @@ class NamedArgument(Argument):
 
 @dataclass
 class Flag(NamedArgument):
+    type: Type[T] = bool
     represents_true: bool = True
 
 
@@ -88,10 +89,10 @@ def add_argument(
         parser: ArgumentParser,
         argument: Argument
 ):
-    if type(argument) not in (Flag, NamedArgument, PositionalArgument):
+    if type(argument) == Argument or not isinstance(argument, Argument):
         raise ValueError(f"Unsupported type '{type(argument)}'")
 
-    args = prepare_names(argument)
+    args = prepare_names(destination_of_binding, argument)
     kwargs = dict()
 
     kwargs["dest"] = destination_of_binding
@@ -112,18 +113,22 @@ def add_argument(
 
 
 def prepare_names(
+        destination_of_binding: str,
         argument: Union[NamedArgument, Argument]
 ) -> List[str]:
     args = list()
     if type(argument) == PositionalArgument:
         return args
 
-    elif type(argument) == NamedArgument:
+    elif isinstance(argument, NamedArgument):
         short_name = argument.short_name
         if short_name is None:
             short_name = argument.name[0]
-
+            argument.short_name = short_name
         args.append(f"-{short_name}")
+
+        if type(argument) == NamedArgument and argument.display_name is None:
+            argument.display_name = destination_of_binding.upper()
 
     if argument.display_name is ...:
         argument.display_name = argument.name
