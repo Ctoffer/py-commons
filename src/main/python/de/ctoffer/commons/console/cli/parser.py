@@ -3,8 +3,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Any, Sequence, Dict, Union
 
-import numpy as np
-
 from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_argument, Argument, Flag, \
     PositionalArgument
 
@@ -15,6 +13,7 @@ _INDEX_OF_USAGE = 1
 class ParsedArguments:
     name: str
     args: Dict[str, Any]
+    sub_name: str = None
     sub: 'ParsedArguments' = None
 
 
@@ -27,12 +26,14 @@ class ArgParser:
             parent_chain: Sequence[str] = ()
     ):
         self._name = name
-        self._parser = argparse.ArgumentParser(prog=name, exit_on_error=exit_on_error)
         self._exit_on_error = exit_on_error
         self._short_info = short_info
         self._arguments = list()
         self._subparsers = dict()
         self._parent_chain = parent_chain
+
+        self._parser = argparse.ArgumentParser(prog=name, exit_on_error=exit_on_error)
+        self._parser.format_help = self.help
 
     @property
     def name(
@@ -74,10 +75,12 @@ class ArgParser:
 
     def add_subparser(
             self,
-            sub_command_name: str
+            sub_command_name: str,
+            short_info: str = ""
     ):
         result = ArgParser(
             sub_command_name,
+            short_info=short_info,
             exit_on_error=self._exit_on_error,
             parent_chain=(*self._parent_chain, self._name)
         )
@@ -93,7 +96,8 @@ class ArgParser:
         subcommand_indices = [arguments.index(sub_command) for sub_command in sub_commands if sub_command in arguments]
 
         if len(subcommand_indices) > 0:
-            index, sub_command = min(subcommand_indices), sub_commands[np.argmin(subcommand_indices)]
+            index = min(subcommand_indices)
+            sub_command = arguments[index]
         else:
             index, sub_command = None, None
 
@@ -105,6 +109,8 @@ class ArgParser:
         )
 
         if sub_args:
+            main_name_space.sub_name = sub_command
+            # FIXME (Ctoffer): sub command is not selected correctly
             main_name_space.sub = self._subparsers[sub_command].parse(sub_args[1:])
 
         return main_name_space
@@ -155,7 +161,7 @@ class ArgParser:
             lines[_INDEX_OF_USAGE].append(f"{{{','.join(names)}}}")
 
             for subcommand in segment_data:
-                format_string = f"{{name:<{max_len_name + 2}s}}{{help}}"
+                format_string = f"   {{name:<{max_len_name + 2}s}}{{help}}"
                 lines.append(format_string.format(name=subcommand.name, help=subcommand.short_info))
             lines.append("")
         else:
@@ -199,7 +205,8 @@ class ArgParser:
             table["number_of_arguments"].append(argument.number_of_arguments)
             number_of_table_rows += 1
 
-        table_sizes = {k: max(map(len, column)) for k, column in table.items() if k in ("short_name", "name", "display_name")}
+        table_sizes = {k: max(map(len, column)) for k, column in table.items() if
+                       k in ("short_name", "name", "display_name")}
 
         format_line = f"   {{short_name:<{table_sizes['short_name']}s}}" \
                       f"{{name:<{table_sizes['name']}s}} " \

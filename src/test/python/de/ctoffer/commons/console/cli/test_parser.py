@@ -116,8 +116,8 @@ positional arguments:
    prog [-h] -a [argument] -i argument [argument ...] {sub1,sub2}
 
 subcommands:
-sub1  
-sub2  
+   sub1  
+   sub2  
 
 flags:
    -h, --help show this help message and exit

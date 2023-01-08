@@ -1,6 +1,6 @@
 import argparse
 import pathlib
-from typing import TypeVar, Generic, Callable, Iterable, Tuple, Set, List, Generator
+from typing import TypeVar, Generic, Callable, Iterable, Tuple, Set, List
 
 T = TypeVar('T')
 C = TypeVar('C', List, Set, Tuple)
