@@ -12,7 +12,7 @@ _REVERSE_ORIGIN = {list: List, tuple: Tuple, set: Set, Union: FlatMap()}
 def expand_type_combinations(
         types_to_expand: Iterable[Type[Any]]
 ) -> Iterable[Type[Any]]:
-    # TODO (Ctoffer): This implementation is not robust
+    # FIXME (Ctoffer): This implementation is not robust
     #                 expand_type_combinations((List[Tuple[Union[int, float], Union[bool, str]]],))
     #                 will not result in
     #                 List[Tuple[int, bool]], List[Tuple[int, str]], List[Tuple[float, bool]], List[Tuple[float, str]]

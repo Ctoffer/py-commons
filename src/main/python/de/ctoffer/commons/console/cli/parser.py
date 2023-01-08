@@ -85,7 +85,6 @@ class ArgParser:
             parent_chain=(*self._parent_chain, self._name)
         )
         self._subparsers[sub_command_name] = result
-        # TODO (Christopher): Update help texts
         return result
 
     def parse(
@@ -110,7 +109,6 @@ class ArgParser:
 
         if sub_args:
             main_name_space.sub_name = sub_command
-            # FIXME (Ctoffer): sub command is not selected correctly
             main_name_space.sub = self._subparsers[sub_command].parse(sub_args[1:])
 
         return main_name_space
