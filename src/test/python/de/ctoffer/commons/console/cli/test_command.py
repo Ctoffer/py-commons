@@ -1,10 +1,10 @@
 from typing import List, Type
-from unittest.mock import patch, call, MagicMock
+from unittest.mock import patch, MagicMock
 
 import pytest
 
 from commons.console.cli.argument import NamedArgument
-from commons.console.cli.command import Command
+from commons.console.cli.command import Command, cli_data
 from commons.testing.asserts import assert_equals, assert_false, assert_true, assert_same, assert_none
 
 
@@ -61,7 +61,7 @@ def test_parent_parsing_with_subcommand():
 
 
 def test_empty_parent_parsing_with_subcommand():
-    parsed_arguments = JiraCommand.__cli__.parser.parse(["issue", "create"])
+    parsed_arguments = cli_data(JiraCommand).parser.parse(["issue", "create"])
     instance = JiraCommand(parsed_arguments)
     create_command, issue_command, jira_command = instance.__cli_run__()
 
@@ -78,7 +78,9 @@ def test_empty_parent_parsing_with_subcommand():
     [
         (["-h"], JiraCommand),
         (["issue", "-h"], JiraIssueCommand),
-        (["issue", "create", "-h"], JiraIssueCreateCommand)
+        (["issue", "create", "-h"], JiraIssueCreateCommand),
+        (["-h", "issue", "create", "-h"], JiraCommand),
+        (["issue", "-h", "create", "-h"], JiraIssueCommand)
     ]
 )
 def test_help(
@@ -94,5 +96,5 @@ def test_help(
         assert_equals(expected=0, actual=e.code)
         assert_equals(
             actual=mock_stdout.mock_calls[0].args[0],
-            expected=output.__cli__.parser.help()
+            expected=cli_data(output).parser.help()
         )
