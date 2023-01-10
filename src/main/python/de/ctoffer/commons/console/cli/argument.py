@@ -10,7 +10,7 @@ from commons.console.cli.argparse_actions import PathMapperAction, StrMapperActi
     PathSetMapperAction, IntTupleMapperAction, FloatTupleMapperAction, BoolTupleMapperAction, StrTupleMapperAction, \
     PathTupleMapperAction, IntListMapperAction, FloatListMapperAction, BoolListMapperAction, StrListMapperAction, \
     PathListMapperAction
-from commons.console.cli.dialog import InputDialog
+from commons.console.dialog.dialog_input import DialogInput
 from commons.util.typing_support import expand_type_combinations
 
 T = TypeVar('T')
@@ -64,7 +64,7 @@ class Argument:
     on_mapping_failed: Callable[[Union[Exception, Tuple[Exception]], str, T], T] = ...
     required: bool = False
     default: T = ...
-    dialog: InputDialog[T] = None
+    dialog: DialogInput[T] = None
     help_text: str = ""
 
 
