@@ -152,3 +152,8 @@ def create_construct_parsable_arguments(
                 )
 
     return construct_parseable_arguments
+
+def create_dialog_run(
+        cls: Type[T]
+):
+    cli = cli_data(cls)
