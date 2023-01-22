@@ -8,6 +8,15 @@ from commons.console.cli.parser import ArgParser, ParsedArguments
 T = TypeVar('T')
 
 
+def command(
+        *,
+        name: str,
+        subcommands: Iterable[Type[Callable]] = None,
+        description: str = ""
+):
+    return Command(name=name, subcommands=subcommands, description=description)
+
+
 @dataclass
 class Command:
     name: str
@@ -152,6 +161,7 @@ def create_construct_parsable_arguments(
                 )
 
     return construct_parseable_arguments
+
 
 def create_dialog_run(
         cls: Type[T]

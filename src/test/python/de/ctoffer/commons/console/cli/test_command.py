@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from commons.console.cli.argument import NamedArgument
-from commons.console.cli.command import Command, cli_data
+from commons.console.cli.command import Command, cli_data, command
 from commons.testing.asserts import assert_equals, assert_false, assert_true, assert_same, assert_none
 
 
@@ -16,32 +16,32 @@ class CommandBase:
         self.called = True
 
 
-@Command(
-    "info",
+@command(
+    name="info",
     description="Shows info to the given ticket."
 )
 class JiraIssueInfoCommand(CommandBase):
     pass
 
 
-@Command(
-    "create",
+@command(
+    name="create",
     description="Creates new ticket"
 )
 class JiraIssueCreateCommand(CommandBase):
     pass
 
 
-@Command(
-    "issue",
+@command(
+    name="issue",
     subcommands=(JiraIssueInfoCommand, JiraIssueCreateCommand)
 )
 class JiraIssueCommand(CommandBase):
     issue_key: NamedArgument(type=str, name="key", required=False)
 
 
-@Command(
-    "jira",
+@command(
+    name="jira",
     subcommands=(JiraIssueCommand,)
 )
 class JiraCommand(CommandBase):
