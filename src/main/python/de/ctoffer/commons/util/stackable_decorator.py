@@ -1,10 +1,12 @@
+import abc
 import logging
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps, partial, update_wrapper
-from typing import TypeVar, Callable, Generic, List, Any, Union, Type, Dict
+from inspect import signature
+from typing import TypeVar, Callable, Generic, List, Any, Union, Type, Dict, Tuple
 
 from commons.util.singleton import Singleton
 
@@ -117,17 +119,18 @@ class AnalyzableFunction:
 
     def __call__(self, *args, **kwargs):
         try:
-            apply_to(self._all_param_handler, value=FunctionParameters(args=args, kwargs=kwargs))
+            apply_to(self._all_param_handler[::-1], value=FunctionParameters(args=args, kwargs=kwargs))
+            arguments = signature(self._original_function).bind(*args, **kwargs).arguments
 
-            for key, value in [*enumerate(args), *kwargs.items()]:
-                apply_to(self._single_param_handler[key], value)
+            for key, handler in list(self._single_param_handler.items())[::-1]:
+                apply_to(handler, arguments[key])
 
             result = self._original_function(*args, **kwargs)
-            apply_to(self._result_handler, value=result)
+            apply_to(self._result_handler[::-1], value=result)
             return result
 
         except Exception as e:
-            apply_to(self._exception_handler[type(e)], value=e, until=lambda o: o)
+            apply_to(self._exception_handler[type(e)][::-1], value=e, until=lambda o: o)
             raise e
 
 
@@ -170,6 +173,81 @@ def log(
     return result
 
 
+class Scope(Enum):
+    Parameter = 0
+    Return = 1
+
+
+class Check(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def __call__(self, value) -> bool:
+        raise NotImplementedError
+
+    def __str__(self):
+        return str(type(self).__name__)
+
+
+class NotEmpty(Check):
+    def __call__(self, value) -> bool:
+        return bool(value)
+
+
+class StrictTypeChecker(Check):
+    def __init__(self, type):
+        self._type = type
+
+    def __call__(self, value):
+        return type(value) == self._type
+
+
+StrictTypeCheck = lambda t: lambda: StrictTypeChecker(t)
+
+
+def constraint(
+        func=None,
+        *,
+        scope: Scope,
+        enforce=Union[Check, Callable[[Any], Check], Tuple[Check, ...]],
+        applies_to: str = None,
+        strict: bool = True
+):
+    if not func:
+        return partial(constraint, scope=scope, enforce=enforce, applies_to=applies_to, strict=strict)
+
+    if type(enforce) != tuple:
+        enforce = (enforce,)
+    enforce = [enforce_type() for enforce_type in enforce]
+
+    result = analyzable_function(func)
+    logger = LoggerCache()[func.__module__]
+
+    logging_prefix = "Result" if applies_to is None else f"Parameter '{applies_to}'"
+
+    def handle_param(value):
+        for enforcer in enforce:
+            if not enforcer(value):
+                text = f"{logging_prefix} does not match constraint '{enforcer}'"
+
+                if strict:
+                    raise ValueError(text)
+                else:
+                    logger.error(text)
+
+    if scope == Scope.Parameter:
+        if applies_to is None:
+            raise ValueError("Name of the parameter was not provided in 'applies_to'")
+
+        result.add_single_param_handler(param=applies_to, handler=handle_param)
+
+    elif scope == Scope.Return:
+        if applies_to is not None:
+            raise ValueError("When scope return is selected no 'applies_to' can be provided")
+
+        result.add_result_handler(handler=handle_param)
+
+    return result
+
+
 def decorator(func=None, *, parameter1="default param1", parameter2="default param2"):
     """Decorator template
 
@@ -194,7 +272,7 @@ def decorator(func=None, *, parameter1="default param1", parameter2="default par
 
 @log(
     level=LogLevel.INFO,
-    to_line=lambda o: f"{o.kwargs['param1']} {o.kwargs['param2']}"
+    to_line=lambda o: f"First parameter: '{o.kwargs['param1']}', Second parameter: '{o.kwargs['param2']}'"
 )
 @log(
     level=LogLevel.INFO,
@@ -202,13 +280,14 @@ def decorator(func=None, *, parameter1="default param1", parameter2="default par
     to_line=lambda r: f"result: '{r}'"
 )
 @log
-# @constraint(Scope.Parameter, applies_to="name", enforce=NotEmpty)
-# @constraint(Scope.Parameter, applies_to="number_of_arguments", enforce=StrictTypeCheck)
-# @constraint(Scope.Return, enforce=(StrictTypeCheck, NotEmpty))
+@constraint(scope=Scope.Parameter, applies_to="param1", enforce=NotEmpty, strict=False)
+@constraint(scope=Scope.Parameter, applies_to="param1", enforce=StrictTypeCheck(str), strict=False)
+@constraint(scope=Scope.Parameter, applies_to="param2", enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
+@constraint(scope=Scope.Return, enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
 # @measure_time
 def bar(param1, param2="oho"):
     print("Inside bar", param1, param2)
-    return "result"
+    return param1 + param2
 
 
-bar(param1="A", param2="B")
+bar(param1="", param2="")
