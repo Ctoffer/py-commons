@@ -1,12 +1,15 @@
 import abc
 import logging
 import sys
+import time
+import timeit
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps, partial, update_wrapper
 from inspect import signature
-from typing import TypeVar, Callable, Generic, List, Any, Union, Type, Dict, Tuple
+from typing import TypeVar, Callable, Generic, List, Any, Union, Type, Dict, Tuple, ContextManager
 
 from commons.util.singleton import Singleton
 
@@ -90,6 +93,7 @@ class AnalyzableFunction:
         self._single_param_handler = defaultdict(list)
         self._result_handler = list()
         self._exception_handler = defaultdict(list)
+        self._context_managers = list()
 
     def add_param_handler(
             self,
@@ -117,7 +121,13 @@ class AnalyzableFunction:
     ):
         self._exception_handler[error_type].append(handler)
 
-    def __call__(self, *args, **kwargs):
+    def add_context_manager(
+            self,
+            context_manger: ContextManager
+    ):
+        self._context_managers.append(context_manger)
+
+    def __call__(self, *args, **kwargs) -> Any:
         try:
             apply_to(self._all_param_handler[::-1], value=FunctionParameters(args=args, kwargs=kwargs))
             arguments = signature(self._original_function).bind(*args, **kwargs).arguments
@@ -125,7 +135,15 @@ class AnalyzableFunction:
             for key, handler in list(self._single_param_handler.items())[::-1]:
                 apply_to(handler, arguments[key])
 
-            result = self._original_function(*args, **kwargs)
+            try:
+                for_each(self._context_managers, lambda manager: manager.__enter__())
+                result = self._original_function(*args, **kwargs)
+                for_each(self._context_managers, lambda manager: manager.__exit__(None, None, None))
+
+            except Exception as e:
+                for_each(self._context_managers, lambda manager: manager.__exit__(type(e), e, e.__traceback__))
+                raise
+
             apply_to(self._result_handler[::-1], value=result)
             return result
 
@@ -248,26 +266,66 @@ def constraint(
     return result
 
 
-def decorator(func=None, *, parameter1="default param1", parameter2="default param2"):
-    """Decorator template
+@dataclass
+class TimeMetrics:
+    minimum_value: int
+    maximum_value: int
+    current_value: int
 
-    :param func:
-    :param parameter1:
-    :param parameter2:
-    :return:
-    """
-    print("decorator", func, parameter1, parameter2)
 
+def measure_time(
+        func=None,
+        *,
+        forward_to: Callable[[Callable, TimeMetrics], None]
+):
     if not func:
-        print("partial")
-        return partial(decorator, parameter1=parameter1, parameter2=parameter2)
+        return partial(measure_time, forward_to=forward_to)
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        print("wrapper", f"'{parameter1}'", f"'{parameter2}'", args, kwargs)
-        return func(*args, **kwargs)
+    result = analyzable_function(func)
 
-    return wrapper
+    class Measure:
+        def __init__(self):
+            self.minimum_value = 0xFFFFFFFF
+            self.maximum_value = 0
+
+        def __enter__(self):
+            self.start = time.time_ns()
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            delta = time.time_ns() - self.start
+
+            if delta < self.minimum_value:
+                self.minimum_value = delta
+            if delta > self.maximum_value:
+                self.maximum_value = delta
+
+            forward_to(
+                func,
+                TimeMetrics(
+                    minimum_value=self.minimum_value,
+                    maximum_value=self.maximum_value,
+                    current_value=delta
+                )
+            )
+
+    result.add_context_manager(Measure())
+
+    return result
+
+
+class LoggingForwarder:
+    def __init__(
+            self,
+            level: LogLevel = LogLevel.INFO,
+            formatter: Callable[[Any], str] = lambda o: str(o)
+    ):
+        self._level = level
+        self._formatter = formatter
+
+    def __call__(self, func: Callable, value: Any):
+        logger = LoggerCache()[func.__module__]
+        log_function = getattr(logger, self._level.name.lower())
+        log_function(f"{func.__module__} {func.__name__} {self._formatter(value)}")
 
 
 @log(
@@ -284,10 +342,13 @@ def decorator(func=None, *, parameter1="default param1", parameter2="default par
 @constraint(scope=Scope.Parameter, applies_to="param1", enforce=StrictTypeCheck(str), strict=False)
 @constraint(scope=Scope.Parameter, applies_to="param2", enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
 @constraint(scope=Scope.Return, enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
-# @measure_time
+@measure_time(forward_to=LoggingForwarder(LogLevel.INFO))
 def bar(param1, param2="oho"):
     print("Inside bar", param1, param2)
+    time.sleep(0.1)
     return param1 + param2
 
 
 bar(param1="", param2="")
+print("-" * 50)
+bar(param1="A", param2="B")
