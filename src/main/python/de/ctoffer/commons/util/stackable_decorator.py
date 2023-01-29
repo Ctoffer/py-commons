@@ -326,29 +326,3 @@ class LoggingForwarder:
         logger = LoggerCache()[func.__module__]
         log_function = getattr(logger, self._level.name.lower())
         log_function(f"{func.__module__} {func.__name__} {self._formatter(value)}")
-
-
-@log(
-    level=LogLevel.INFO,
-    to_line=lambda o: f"First parameter: '{o.kwargs['param1']}', Second parameter: '{o.kwargs['param2']}'"
-)
-@log(
-    level=LogLevel.INFO,
-    life_cycle=FunctionLifeCycle.Exit,
-    to_line=lambda r: f"result: '{r}'"
-)
-@log
-@constraint(scope=Scope.Parameter, applies_to="param1", enforce=NotEmpty, strict=False)
-@constraint(scope=Scope.Parameter, applies_to="param1", enforce=StrictTypeCheck(str), strict=False)
-@constraint(scope=Scope.Parameter, applies_to="param2", enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
-@constraint(scope=Scope.Return, enforce=(StrictTypeCheck(str), NotEmpty), strict=False)
-@measure_time(forward_to=LoggingForwarder(LogLevel.INFO))
-def bar(param1, param2="oho"):
-    print("Inside bar", param1, param2)
-    time.sleep(0.1)
-    return param1 + param2
-
-
-bar(param1="", param2="")
-print("-" * 50)
-bar(param1="A", param2="B")
