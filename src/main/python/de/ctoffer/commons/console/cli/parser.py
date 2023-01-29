@@ -5,6 +5,8 @@ from typing import List, Any, Sequence, Dict, Union
 
 from commons.console.cli.argument import NamedArgument, ArgumentFrequency, add_argument, Argument, Flag, \
     PositionalArgument
+from commons.util.stackable_decorator import constraint, Scope, NotEmpty, StrictTypeCheck, param_constraint, \
+    param_constraints, return_constraint
 
 _INDEX_OF_USAGE = 1
 
@@ -268,10 +270,14 @@ def map_display_name(
     return result
 
 
-# TODO (Ctoffer): Make stackable iterative constraints compatible with error_handler, logging, time_measurement
-# @constraint(Scope.Parameter, applies_to="name", enforce=NotEmpty)
-# @constraint(Scope.Parameter, applies_to="number_of_arguments", enforce=StrictTypeCheck)
-# @constraint(Scope.Return, enforce=(StrictTypeCheck, NotEmpty))
+@param_constraints({
+    "short_name": StrictTypeCheck(str),
+    "name": (NotEmpty, StrictTypeCheck(str)),
+    "display_name": (NotEmpty, StrictTypeCheck(str)),
+    "required": StrictTypeCheck(bool)
+})
+# @constraint(scope=Scope.Parameter, applies_to="number_of_arguments", enforce=StrictTypeCheck(int)) # TODO (Ctoffer): Union not supported
+@return_constraint(enforce=(StrictTypeCheck(str), NotEmpty))
 def build_usage_help_segment(
         short_name: str,
         name: str,

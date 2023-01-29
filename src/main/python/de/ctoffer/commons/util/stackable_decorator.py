@@ -11,6 +11,8 @@ from functools import wraps, partial, update_wrapper
 from inspect import signature
 from typing import TypeVar, Callable, Generic, List, Any, Union, Type, Dict, Tuple, ContextManager
 
+from frozendict import frozendict
+
 from commons.util.singleton import Singleton
 
 S = TypeVar('S')
@@ -220,12 +222,14 @@ class StrictTypeChecker(Check):
 
 StrictTypeCheck = lambda t: lambda: StrictTypeChecker(t)
 
+SingleValueTypeChecks = Union[Check, Callable[[Any], Check], Tuple[Check, ...]]
+
 
 def constraint(
         func=None,
         *,
         scope: Scope,
-        enforce=Union[Check, Callable[[Any], Check], Tuple[Check, ...]],
+        enforce=SingleValueTypeChecks,
         applies_to: str = None,
         strict: bool = True
 ):
@@ -253,7 +257,7 @@ def constraint(
 
     if scope == Scope.Parameter:
         if applies_to is None:
-            raise ValueError("Name of the parameter was not provided in 'applies_to'")
+            raise ValueError("Name of the paramete1r was not provided in 'applies_to'")
 
         result.add_single_param_handler(param=applies_to, handler=handle_param)
 
@@ -262,6 +266,26 @@ def constraint(
             raise ValueError("When scope return is selected no 'applies_to' can be provided")
 
         result.add_result_handler(handler=handle_param)
+
+    return result
+
+
+param_constraint = partial(constraint, scope=Scope.Parameter)
+return_constraint = partial(constraint, scope=Scope.Return)
+
+
+@param_constraint(enforce=NotEmpty, applies_to="rules", strict=True)
+def param_constraints(
+        rules: Dict[str, SingleValueTypeChecks],
+        strict: Dict[str, bool] = frozendict()
+):
+    result = None
+
+    for param_name, checks in rules.items():
+        if type(param_name) not in (str, tuple):
+            raise TypeError("param_constraints: keys of rules must be either str or Tuple[str, bool]")
+
+        result = param_constraint(func=None, applies_to=param_name, enforce=checks, strict=strict.get(param_name, True))
 
     return result
 
