@@ -1,0 +1,5 @@
+attribute_1:
+  host: the-local-host
+  port: -1
+  path: some/path
+  extra_attr: aa
