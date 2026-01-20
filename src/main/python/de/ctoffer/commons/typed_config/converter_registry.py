@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from commons.typed_config.standard_field_converters import FieldConverter, ConversionContext, DataclassFieldConverter, \
-    PathFieldConverter, TrivialFieldConverter
+    PathFieldConverter, TrivialFieldConverter, ListFieldConverter
 from commons.util.singleton import Singleton
 
 log = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ class ConverterRegistry(metaclass=Singleton):
 
         self.register(DataclassFieldConverter)
         self.register(PathFieldConverter)
+        self.register(ListFieldConverter)
         self.register(TrivialFieldConverter)
 
     def register(

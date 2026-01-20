@@ -176,3 +176,38 @@ class TrivialFieldConverter(FieldConverter[TrivialType]):
             )
             raise ValueError(message)
         return value
+
+class ListFieldConverter(FieldConverter[list[T]]):
+    def accepts_target_type(self, type_: type[T]) -> bool:
+        return type_ is list or get_origin(type_) is list
+
+    def __call__(self, value: Any, context: ConversionContext) -> list[T] | None:
+        tp = context.target_type
+        if get_origin(tp) is list:
+            (elem_type,) = get_args(tp)
+        else:
+            elem_type = Any
+
+        from commons.typed_config.converter_registry import ConverterRegistry
+        registry = ConverterRegistry()
+
+        if elem_type in (Any, object):
+            return value
+        else:
+            return [
+                registry(item, ListFieldConverter._copy_context(i, elem_type, context))
+                for i, item in enumerate(value)
+            ]
+
+    @staticmethod
+    def _copy_context[T](i: int, target_type: type[T], context: ConversionContext) -> ConversionContext:
+        parent_name = context.canonical_field_name
+        field_name = f"[{i}]"
+
+        return ConversionContext(
+            source_file=context.source_file,
+            target_type=target_type,
+            strict=context.strict,
+            field_name=field_name,
+            canonical_field_name=(parent_name + "." if parent_name != '<root>' else "") + field_name
+        )

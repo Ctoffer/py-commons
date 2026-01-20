@@ -17,6 +17,13 @@ class NestedConfig:
     attribute_1 : ConfigAttribute
     attribute_2 : ConfigAttribute = ConfigAttribute(host="my_host")
 
+@dataclass
+class Pair:
+    x: int
+    y: int
 
-nested_config = load_config("sample_config.yml", type_=NestedConfig)
-print(nested_config)
+# nested_config = load_config("sample_config.yml", type_=NestedConfig)
+# print(nested_config)
+
+pair_data = load_config("pairs.yml", type_=list[Pair])
+print(len(pair_data), pair_data, pair_data[4].y)
