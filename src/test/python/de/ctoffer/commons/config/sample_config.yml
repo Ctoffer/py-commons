@@ -3,3 +3,6 @@ attribute_1:
   port: -1
   path: some/path
   extra_attr: aa
+
+attribute_2:
+    port: 9000

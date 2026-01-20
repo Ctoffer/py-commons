@@ -1,13 +1,15 @@
 from dataclasses import dataclass
+from pathlib import Path
 
-from commons.config.typed_config import load_config
+from commons.typed_config import load_config
 
 
 @dataclass(frozen=True)
 class ConfigAttribute:
     host: str
     port: int = 8080
-    path: str | None = None
+    path: Path | None = None
+    extra_attribute: str | None = None
 
 
 @dataclass
