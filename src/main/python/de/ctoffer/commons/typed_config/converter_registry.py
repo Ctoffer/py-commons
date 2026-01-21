@@ -1,8 +1,9 @@
 import logging
 from typing import Any
 
+
 from commons.typed_config.standard_field_converters import FieldConverter, ConversionContext, DataclassFieldConverter, \
-    PathFieldConverter, TrivialFieldConverter, ListFieldConverter, DictFieldConverter
+    PathFieldConverter, TrivialFieldConverter, ListFieldConverter, DictFieldConverter, DatetimeFieldConverter
 from commons.util.singleton import Singleton
 
 log = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class ConverterRegistry(metaclass=Singleton):
         self.register(DictFieldConverter)
         self.register(ListFieldConverter)
         self.register(TrivialFieldConverter)
+        self.register(DatetimeFieldConverter)
 
     def register(
             self,
@@ -37,9 +39,16 @@ class ConverterRegistry(metaclass=Singleton):
         type_ = context.target_type
 
         for converter in self._converters:
-            if converter.accepts_target_type(type_):
+            try:
+                conversion_possible = converter.accepts_target_type(type_)
+            except BaseException as e:
+                logging.warning(e)
+                conversion_possible = False
+
+            if conversion_possible:
                 result = converter(value, context)
                 break
+
         else:
             result = value
 

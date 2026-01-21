@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, get_args
@@ -87,15 +88,41 @@ def test_dict_of_objects():
     assert 1, 1 == (actual["entry_1"].x, actual["entry_1"].y)
     assert 5, 25 == (actual["entry_5"].x, actual["entry_5"].y)
 
+@dataclass
+class DatetimeTestData:
+    date_from_str: datetime.date
+    date_from_obj: datetime.date
+    time_from_str: datetime.time
+    time_from_obj: datetime.time
+    datetime_from_str: datetime.datetime
+    datetime_from_obj: datetime.datetime
+
+def test_datetime():
+    actual = load_config(
+        "datetime.yml",
+        type_=DatetimeTestData,
+        strict=True
+    )
+
+    expected_date = datetime.date(2026, 1, 21)
+    expected_time = datetime.time(9, 33, 14, 578_000)
+    expected_datetime = datetime.datetime.combine(expected_date, expected_time)
+
+    assert expected_date == actual.date_from_str
+    assert expected_date == actual.date_from_obj
+    assert expected_time == actual.time_from_str
+    assert expected_time == actual.time_from_obj
+    assert expected_datetime == actual.datetime_from_str
+    assert expected_datetime == actual.datetime_from_obj
+
 
 def main():
     # test_nested_config_with_defaults()
-    test_list_of_objects()
-    test_list_of_dicts()
-    test_just_an_object()
-    test_dict_of_objects()
-
-
+    # test_list_of_objects()
+    # test_list_of_dicts()
+    # test_just_an_object()
+    # test_dict_of_objects()
+    test_datetime()
 
 if __name__ == "__main__":
     main()
