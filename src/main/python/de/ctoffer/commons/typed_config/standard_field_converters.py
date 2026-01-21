@@ -8,6 +8,8 @@ from typing import Any, KeysView, get_origin, get_args
 
 from typing import TypeVar, Generic
 
+from commons import typing
+
 log = logging.getLogger(__name__)
 T = TypeVar('T')
 
@@ -159,7 +161,7 @@ def compliant_type_check(
 
     return False
 
-TrivialType = int | float | bool | str
+TrivialType = int | float | bool | str | Any
 
 class TrivialFieldConverter(FieldConverter[TrivialType]):
     def accepts_target_type(self, type_: type[TrivialType]) -> bool:
@@ -169,10 +171,11 @@ class TrivialFieldConverter(FieldConverter[TrivialType]):
         if value is None:
             return None
 
-        if type(value) not in (int, float, bool, str):
+        allowed_types = get_args(TrivialType)
+        if type(value) not in allowed_types:
             message = FieldConverter._create_error_message(
                 context,
-                f"Expected type in (int, float, bool, str), but is '{type(value)}"
+                f"Expected type in {allowed_types}, but is '{type(value)}"
             )
             raise ValueError(message)
         return value
@@ -198,6 +201,50 @@ class ListFieldConverter(FieldConverter[list[T]]):
                 registry(item, ListFieldConverter._copy_context(i, elem_type, context))
                 for i, item in enumerate(value)
             ]
+
+    @staticmethod
+    def _copy_context[T](i: int, target_type: type[T], context: ConversionContext) -> ConversionContext:
+        parent_name = context.canonical_field_name
+        field_name = f"[{i}]"
+
+        return ConversionContext(
+            source_file=context.source_file,
+            target_type=target_type,
+            strict=context.strict,
+            field_name=field_name,
+            canonical_field_name=(parent_name + "." if parent_name != '<root>' else "") + field_name
+        )
+
+
+class DictFieldConverter(FieldConverter[dict[str, T]]):
+    def accepts_target_type(self, type_: type[T]) -> bool:
+        return type_ is dict or get_origin(type_) is dict
+
+    def __call__(self, value: Any, context: ConversionContext) -> dict[str, T] | None:
+        tp = context.target_type
+        if get_origin(tp) is dict:
+            key_type, value_type = get_args(tp)
+        else:
+            key_type = str
+            value_type = Any
+
+        if key_type != str:
+            message = FieldConverter._create_error_message(
+                context,
+                f'Key type must be str, but is {key_type}'
+            )
+            raise ValueError(message)
+
+        from commons.typed_config.converter_registry import ConverterRegistry
+        registry = ConverterRegistry()
+
+        if value_type in (Any, object):
+            return value
+        else:
+            return {
+                key: registry(val, DictFieldConverter._copy_context(key, value_type, context))
+                for key, val in value.items()
+            }
 
     @staticmethod
     def _copy_context[T](i: int, target_type: type[T], context: ConversionContext) -> ConversionContext:
