@@ -3,6 +3,7 @@ import datetime
 import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import is_dataclass, dataclass
+from enum import Enum, EnumType
 from pathlib import Path
 from types import UnionType
 from typing import Any, KeysView, get_origin, get_args
@@ -266,6 +267,9 @@ DateTimeDescriptor = dict[str, Any] | str
 DateTimeType = datetime.datetime | datetime.date | datetime.time
 
 
+# TODO: datetime.timedelta needs additional logic to be implemented as their is no built-in way to convert from / to ISO 8601
+
+
 class DatetimeFieldConverter(FieldConverter[DateTimeType]):
     def accepts_target_type(
             self,
@@ -280,7 +284,7 @@ class DatetimeFieldConverter(FieldConverter[DateTimeType]):
         else:
             return any(
                 compliant_type_check(target, type_)
-                for target in  get_args(DateTimeType)
+                for target in get_args(DateTimeType)
             )
 
     def __call__(
@@ -403,3 +407,30 @@ class DatetimeFieldConverter(FieldConverter[DateTimeType]):
             )
 
         return result
+
+
+class EnumFieldConverter(FieldConverter[Enum]):
+    def __init__(self):
+        self._cache: dict[EnumType, dict[str, Enum]] = dict()
+    def accepts_target_type(self, type_: type[Enum]) -> bool:
+        return isinstance(type_, type) and issubclass(type_, Enum)
+
+    def __call__(
+            self,
+            value: Any,
+            context: ConversionContext
+    ) -> Enum:
+        target_type = context.target_type
+
+        if type(value) == str:
+            if not target_type in self._cache:
+                self._cache[target_type] = {key.lower(): value for key, value in target_type.__members__.items()}
+            lookup = self._cache[target_type]
+
+            return lookup[value.lower()]
+        else:
+            message = FieldConverter._create_error_message(
+                context,
+                f"Type ({type(value)}) is unsupported for Enums"
+            )
+            raise TypeError(message)

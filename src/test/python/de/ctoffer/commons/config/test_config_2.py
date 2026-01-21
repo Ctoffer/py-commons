@@ -1,7 +1,8 @@
 import datetime
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any
 
 from commons.typed_config import load_config
 
@@ -115,6 +116,27 @@ def test_datetime():
     assert expected_datetime == actual.datetime_from_str
     assert expected_datetime == actual.datetime_from_obj
 
+class Weekday (Enum):
+    MONDAY = auto()
+    TUESDAY = auto()
+    WEDNESDAY = auto()
+    THURSDAY = auto()
+    FRIDAY = auto()
+    SATURDAY = auto()
+    SUNDAY = auto()
+
+def test_enum():
+    actual = load_config(
+        "enum.yml",
+        type_=list[Weekday],
+        strict=True
+    )
+    
+    assert Weekday.MONDAY == actual[0]
+    assert Weekday.TUESDAY == actual[1]
+    assert Weekday.WEDNESDAY == actual[2]
+    assert Weekday.SATURDAY == actual[3]
+    assert Weekday.FRIDAY == actual[4]
 
 def main():
     # test_nested_config_with_defaults()
@@ -122,7 +144,8 @@ def main():
     # test_list_of_dicts()
     # test_just_an_object()
     # test_dict_of_objects()
-    test_datetime()
+    # test_datetime()
+    test_enum()
 
 if __name__ == "__main__":
     main()
