@@ -43,8 +43,8 @@ class ConverterRegistry(metaclass=Singleton):
         for converter in self._converters:
             try:
                 conversion_possible = converter.accepts_target_type(type_)
-            except BaseException as e:
-                logging.warning(e)
+            except Exception as e:
+                log.warning(f"Test if target is accepting is failing: converter={converter} context={context} exception={type(e)}")
                 conversion_possible = False
 
             if conversion_possible:

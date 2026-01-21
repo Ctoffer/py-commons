@@ -275,6 +275,10 @@ class DatetimeFieldConverter(FieldConverter[DateTimeType]):
             self,
             type_: type[DateTimeType]
     ) -> bool:
+        # Exclude Generics
+        if get_origin(type_) is not None:
+            return False
+
         if get_origin(type_) is UnionType:
             return any(
                 compliant_type_check(target, requested_type)

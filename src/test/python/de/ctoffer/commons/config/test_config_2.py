@@ -139,12 +139,12 @@ def test_enum():
     assert Weekday.FRIDAY == actual[4]
 
 def main():
-    # test_nested_config_with_defaults()
-    # test_list_of_objects()
-    # test_list_of_dicts()
-    # test_just_an_object()
-    # test_dict_of_objects()
-    # test_datetime()
+    test_nested_config_with_defaults()
+    test_list_of_objects()
+    test_list_of_dicts()
+    test_just_an_object()
+    test_dict_of_objects()
+    test_datetime()
     test_enum()
 
 if __name__ == "__main__":
