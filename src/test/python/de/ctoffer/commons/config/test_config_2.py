@@ -138,6 +138,21 @@ def test_enum():
     assert Weekday.SATURDAY == actual[3]
     assert Weekday.FRIDAY == actual[4]
 
+@dataclass
+class NamingDummy:
+    some_long_attribute: int
+
+def test_naming_convention():
+    actual = load_config(
+        "naming_convention.yml",
+        type_=list[NamingDummy],
+        strict=True
+    )
+
+    assert 1 == actual[0].some_long_attribute
+    assert 2 == actual[1].some_long_attribute
+    assert 3 == actual[2].some_long_attribute
+
 def main():
     test_nested_config_with_defaults()
     test_list_of_objects()
@@ -146,6 +161,7 @@ def main():
     test_dict_of_objects()
     test_datetime()
     test_enum()
+    test_naming_convention()
 
 if __name__ == "__main__":
     main()

@@ -56,6 +56,7 @@ class DataclassFieldConverter(FieldConverter[T]):
             dictionary: dict[str, Any],
             context: ConversionContext
     ) -> T:
+        dictionary = {DataclassFieldConverter._normalize_name(key): value for key, value in dictionary.items()}
         type_: type[T] = context.target_type
         parameter_name: str = context.field_name
         strict = context.strict
@@ -124,6 +125,21 @@ class DataclassFieldConverter(FieldConverter[T]):
             else:
                 log.warning(message)
 
+    @staticmethod
+    def _normalize_name(
+            name: str
+    ) -> str:
+        name = name.replace('-', '_')
+        normalized_name = [name[0]]
+        for i in range(1, len(name)):
+            current_char = name[i]
+            previous_char = name[i - 1]
+
+            char = '_' + current_char.lower() if current_char.isupper() and previous_char.islower() else current_char
+
+            normalized_name.append(char)
+
+        return ''.join(normalized_name)
 
 class PathFieldConverter(FieldConverter[Path]):
     def accepts_target_type(self, type_: type[Path]) -> bool:
@@ -221,10 +237,17 @@ class ListFieldConverter(FieldConverter[list[T]]):
 
 
 class DictFieldConverter(FieldConverter[dict[str, T]]):
-    def accepts_target_type(self, type_: type[T]) -> bool:
+    def accepts_target_type(
+            self,
+            type_: type[T]
+    ) -> bool:
         return type_ is dict or get_origin(type_) is dict
 
-    def __call__(self, value: Any, context: ConversionContext) -> dict[str, T] | None:
+    def __call__(
+            self,
+            value: Any,
+            context: ConversionContext
+    ) -> dict[str, T] | None:
         tp = context.target_type
         if get_origin(tp) is dict:
             key_type, value_type = get_args(tp)
@@ -251,7 +274,11 @@ class DictFieldConverter(FieldConverter[dict[str, T]]):
             }
 
     @staticmethod
-    def _copy_context[T](field_name: str, target_type: type[T], context: ConversionContext) -> ConversionContext:
+    def _copy_context[T](
+            field_name: str,
+            target_type: type[T],
+            context: ConversionContext
+    ) -> ConversionContext:
         parent_name = context.canonical_field_name
 
         return ConversionContext(
