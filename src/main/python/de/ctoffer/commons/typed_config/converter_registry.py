@@ -25,11 +25,20 @@ class ConverterRegistry(metaclass=Singleton):
             self,
             converter: FieldConverter | type[FieldConverter]
     ) -> None:
+        """
+        Register a new converter.
+
+        :param converter: Either an instance or the type of the new converter to be registered. Only one instance is registered during runtime.
+        :raises TypeError: If the given converter is not an instance or a subclassed type of FieldConverter.
+        """
         if isinstance(converter, type):
             if not issubclass(converter, FieldConverter):
                 raise TypeError("Expected the 'converter' parameter to be a subclass of 'FieldConverter'.")
             else:
                 converter = converter()
+
+        if not isinstance(converter, FieldConverter):
+            raise TypeError("Expected the 'converter' parameter to be a subclass of 'FieldConverter'.") # TODO better error handling
 
         self._converters.add(converter)
 
