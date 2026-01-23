@@ -14,7 +14,7 @@ def load_config[T](
     """
     Loads a configuration from a YAML file.
 
-    The requested type determines which :py:class:`~typed_config/standard_field_converters/FieldConverter` to use as an entry point.
+    The requested type determines which FieldConverter to use as an entry point.
     There are default field converters for:
     - dataclass
     - datetime.datetime, datetime.date, datetime.time
@@ -23,9 +23,9 @@ def load_config[T](
     - dict[str, T]
     - Path
     - int, float, bool, str and None
-    Use precise type-specifications and keep UnionTypes to a minimum for the type detection to a minimum.
-    A UnionType with None should be fine.
-    If a default for a dataclass is given properties can be overwritten partially by a given configuration.
+    Use precise type-specifications and keep UnionTypes to a minimum for the type detection.
+    A UnionType with None should be fine in most cases.
+    If a default for a dataclass is given, properties can be overwritten partially by a given configuration.
 
     Args:
         path: Path to the YAML file.
