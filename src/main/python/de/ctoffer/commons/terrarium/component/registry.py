@@ -97,6 +97,8 @@ class TerrariumComponentRegistry(metaclass=Singleton):
                 if descriptor in remaining_children:
                     remaining_children.remove(descriptor)
 
+            queue = sorted(queue, key=lambda x: len(x[1]))
+
 
         self._state = TerrariumState.INITIALIZED
 

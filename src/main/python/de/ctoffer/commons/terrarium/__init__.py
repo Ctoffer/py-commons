@@ -7,6 +7,7 @@ from typing import Callable, Self
 
 from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
+from commons.terrarium.component.lifecycle_hook import EntryPoint
 from commons.terrarium.component.registry import TerrariumComponentRegistry, proxy_of_type, proxy_of_callable
 
 
@@ -83,3 +84,12 @@ class Terrarium(AbstractContextManager[Self]):
             descriptor = ComponentDescriptorFactory.of(type_=descriptor)
 
         return self._registry[descriptor]
+
+    @staticmethod
+    def run(packages: tuple[ModuleType, ...], main: Callable[[], None] = None):
+        with Terrarium(packages=packages) as terra:
+            if main is None:
+                my_class = terra[EntryPoint]
+                my_class.main()
+            else:
+                main()
