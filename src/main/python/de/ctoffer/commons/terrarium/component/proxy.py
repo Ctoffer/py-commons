@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Callable, Any, Self
 
 from commons.terrarium.component.descriptor import ComponentDescriptor
 
@@ -35,7 +35,7 @@ class ComponentProxy:
     def primary(self) -> bool:
         return self._primary
 
-    def initialize(self) -> 'ComponentProxy':
+    def initialize(self) -> Self:
         if self._instance is None:
             self._instance = self._initializer()
 
