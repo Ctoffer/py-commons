@@ -3,7 +3,7 @@ import pkgutil
 import re
 from contextlib import AbstractContextManager
 from types import ModuleType
-from typing import Callable, Self
+from typing import Callable, Self, Any, get_type_hints
 
 from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
@@ -86,10 +86,21 @@ class Terrarium(AbstractContextManager[Self]):
         return self._registry[descriptor]
 
     @staticmethod
-    def run(packages: tuple[ModuleType, ...], main: Callable[[], None] = None):
+    def start(
+            packages: tuple[ModuleType, ...],
+            main: Callable[[], None] | Callable[[Any], None] = None):
         with Terrarium(packages=packages) as terra:
             if main is None:
                 my_class = terra[EntryPoint]
                 my_class.main()
             else:
-                main()
+                type_hints = get_type_hints(main)
+                main_parameters = dict()
+                for param_name, param_type in type_hints.items():
+                    if param_name == "return":
+                        print("Warning: Return type of main function is ignored!")
+                        continue
+                    resolved_parameter = terra[ComponentDescriptorFactory.of(name=param_name, type_=param_type)]
+                    main_parameters[param_name] = resolved_parameter
+
+                main(**main_parameters)

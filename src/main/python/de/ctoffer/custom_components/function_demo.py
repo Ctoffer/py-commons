@@ -1,5 +1,3 @@
-from typing import Any
-
 from commons.terrarium import component
 from custom_components.class_demo import MyArgument
 from custom_components.non_components import MyClass
