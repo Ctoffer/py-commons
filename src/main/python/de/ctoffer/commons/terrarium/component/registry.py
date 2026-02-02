@@ -92,6 +92,7 @@ class TerrariumComponentRegistry(metaclass=Singleton):
 
             component_proxy: ComponentProxy = self._proxies[descriptor]
             component_proxy.initialize()
+            self._init_order.append(component_proxy)
 
             for remaining_descriptor, remaining_children in queue:
                 if descriptor in remaining_children:
@@ -104,9 +105,10 @@ class TerrariumComponentRegistry(metaclass=Singleton):
 
     def post_init_components(self) -> None:
         for proxy in self._init_order:
+            instance = proxy.instance
             method_name = PostInit.__post_init__.__name__
-            if hasattr(proxy, method_name):
-                post_construct = getattr(proxy, method_name)
+            if hasattr(instance, method_name):
+                post_construct = getattr(instance, method_name)
                 post_construct()
 
         # context ready
@@ -114,9 +116,10 @@ class TerrariumComponentRegistry(metaclass=Singleton):
 
     def pre_destruct_components(self) -> None:
         for proxy in self._init_order[::-1]:
+            instance = proxy.instance
             method_name = PreDestroy.__pre_destroy__.__name__
-            if hasattr(proxy, method_name):
-                pre_destruct = getattr(proxy, method_name)
+            if hasattr(instance, method_name):
+                pre_destruct = getattr(instance, method_name)
                 pre_destruct()
 
 

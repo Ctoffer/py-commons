@@ -5,6 +5,8 @@ from contextlib import AbstractContextManager
 from types import ModuleType
 from typing import Callable, Self, Any, get_type_hints
 
+import core_components
+
 from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
 from commons.terrarium.component.lifecycle_hook import EntryPoint
@@ -68,6 +70,7 @@ class Terrarium(AbstractContextManager[Self]):
         self._packages: tuple[ModuleType, ...] = packages
 
     def __enter__(self) -> Self:
+        component_scan(core_components)
         component_scan(*self._packages)
         self._registry.initialize_components()
         self._registry.post_init_components()
@@ -88,7 +91,7 @@ class Terrarium(AbstractContextManager[Self]):
     @staticmethod
     def start(
             packages: tuple[ModuleType, ...],
-            main: Callable[[], None] | Callable[[Any], None] = None):
+            main: Callable[[], None] | Callable[[Any, ...], None] = None):
         with Terrarium(packages=packages) as terra:
             if main is None:
                 my_class = terra[EntryPoint]
