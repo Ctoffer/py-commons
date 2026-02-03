@@ -1,6 +1,6 @@
 import importlib
 import pkgutil
-import re
+
 from contextlib import AbstractContextManager
 from types import ModuleType
 from typing import Callable, Self, Any, get_type_hints
@@ -10,6 +10,7 @@ from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
 from commons.terrarium.component.lifecycle_hook import EntryPoint
 from commons.terrarium.component.registry import TerrariumComponentRegistry, proxy_of_type, proxy_of_callable
+from commons.terrarium.utils import to_lower_snake_case
 
 
 def component[T](
@@ -18,7 +19,7 @@ def component[T](
         primary: bool = False
 ):
     def decorate(obj: Callable[[...], T] | type[T]):
-        normalized_name = name if type(name) == str else _to_lower_snake_case(obj.__name__)
+        normalized_name = name if type(name) == str else to_lower_snake_case(obj.__name__)
         print(f"Decorate: {obj.__name__} normalized_name: {normalized_name})")
         registry = TerrariumComponentRegistry()
 
@@ -37,20 +38,6 @@ def component[T](
         return decorate(name)
     else:
         return decorate
-
-
-_PATTERN_CAMEL_CASE_1 = re.compile(r"(.)([A-Z][a-z]+)")
-_PATTERN_CAMEL_CASE_2 = re.compile(r"([a-z0-9])([A-Z])")
-
-
-def _to_lower_snake_case(text: str) -> str:
-    if "_" in text and text.islower():
-        return text
-
-    s1 = _PATTERN_CAMEL_CASE_1.sub(r"\1_\2", text)
-    s2 = _PATTERN_CAMEL_CASE_2.sub(r"\1_\2", s1)
-
-    return s2.lower()
 
 
 def component_scan(*args: ModuleType):

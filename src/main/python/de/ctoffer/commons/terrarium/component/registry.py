@@ -1,5 +1,6 @@
 from typing import Any, Callable, get_type_hints, Self
 
+from commons.terrarium.utils import to_lower_snake_case
 from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
 from commons.terrarium.component.lifecycle_hook import PostInit, PreDestroy
@@ -122,8 +123,28 @@ class TerrariumComponentRegistry(metaclass=Singleton):
                 pre_destruct = getattr(instance, method_name)
                 pre_destruct()
 
+def proxy_of_instance[T](
+        instance: T,
+        name: str = None,
+        primary: bool = False
+) -> ComponentProxy:
+    if name is None:
+        name = to_lower_snake_case(type(instance).__name__)
 
-def proxy_of_type[T](type_: type[T], name: str, primary: bool = False) -> ComponentProxy:
+    result = ComponentProxy(
+        name=name,
+        type_=type(instance),
+        dependencies=[],
+        initializer=lambda : instance,
+        primary=primary
+    )
+    return result
+
+def proxy_of_type[T](
+        type_: type[T],
+        name: str,
+        primary: bool = False
+) -> ComponentProxy:
     annotations = type_.__annotations__
     dependencies = [
         ComponentDescriptor(type_=annotation_type, name=name)
