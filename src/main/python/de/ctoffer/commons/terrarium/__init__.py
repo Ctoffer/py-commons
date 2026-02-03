@@ -5,8 +5,7 @@ from contextlib import AbstractContextManager
 from types import ModuleType
 from typing import Callable, Self, Any, get_type_hints
 
-import core_components
-
+import commons.terrarium.core_components
 from commons.terrarium.component.descriptor import ComponentDescriptor
 from commons.terrarium.component.descriptor_factory import ComponentDescriptorFactory
 from commons.terrarium.component.lifecycle_hook import EntryPoint
