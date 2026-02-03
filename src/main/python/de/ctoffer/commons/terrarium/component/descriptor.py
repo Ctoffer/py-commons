@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, Generic, TypeVar
 
+T = TypeVar("T")
 
 @dataclass(frozen=True)
-class ComponentDescriptor:
-    type_: type[Any]
+class ComponentDescriptor(Generic[T]):
+    type_: type[T]
     name: str
 
     def match_score(self, available_descriptor: Self):

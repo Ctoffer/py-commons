@@ -30,10 +30,15 @@ class TerrariumComponentRegistry(metaclass=Singleton):
         self._children[descriptor] = component_proxy.dependencies
         return self
 
-    def __getitem__(
+    def __getitem__[T](
             self,
-            descriptor: ComponentDescriptor
-    ) -> Any:
+            descriptor: str | type[T] | ComponentDescriptor[T]
+    ) -> T:
+        if isinstance(descriptor, str):
+            descriptor = ComponentDescriptorFactory.of(name=descriptor)
+        elif isinstance(descriptor, type):
+            descriptor = ComponentDescriptorFactory.of(type_=descriptor)
+
         # direct match
         if descriptor in self._proxies:
             return self._proxies[descriptor].instance
@@ -89,7 +94,8 @@ class TerrariumComponentRegistry(metaclass=Singleton):
             print("Initialize", descriptor)
 
             if len(children) > 0:
-                raise ValueError(f"Can't initialize component '{descriptor}' because of unresolved dependencies: {children}")
+                raise ValueError(
+                    f"Can't initialize component '{descriptor}' because of unresolved dependencies: {children}")
 
             component_proxy: ComponentProxy = self._proxies[descriptor]
             component_proxy.initialize()
@@ -101,7 +107,6 @@ class TerrariumComponentRegistry(metaclass=Singleton):
 
             queue = sorted(queue, key=lambda x: len(x[1]))
 
-
         self._state = TerrariumState.INITIALIZED
 
     def post_init_components(self) -> None:
@@ -112,9 +117,6 @@ class TerrariumComponentRegistry(metaclass=Singleton):
                 post_construct = getattr(instance, method_name)
                 post_construct()
 
-        # context ready
-
-
     def pre_destruct_components(self) -> None:
         for proxy in self._init_order[::-1]:
             instance = proxy.instance
@@ -122,6 +124,7 @@ class TerrariumComponentRegistry(metaclass=Singleton):
             if hasattr(instance, method_name):
                 pre_destruct = getattr(instance, method_name)
                 pre_destruct()
+
 
 def proxy_of_instance[T](
         instance: T,
@@ -135,10 +138,11 @@ def proxy_of_instance[T](
         name=name,
         type_=type(instance),
         dependencies=[],
-        initializer=lambda : instance,
+        initializer=lambda: instance,
         primary=primary
     )
     return result
+
 
 def proxy_of_type[T](
         type_: type[T],
@@ -183,7 +187,8 @@ def proxy_of_callable[T](
         raise ValueError(f"There is no return type hint defined for {obj}")
 
     return_type = type_hints["return"]
-    dependencies = [ComponentDescriptorFactory.of(type_=t, name=name) for name, t in type_hints.items() if name != "return"]
+    dependencies = [ComponentDescriptorFactory.of(type_=t, name=name) for name, t in type_hints.items() if
+                    name != "return"]
 
     def init() -> T:
         registry = TerrariumComponentRegistry()

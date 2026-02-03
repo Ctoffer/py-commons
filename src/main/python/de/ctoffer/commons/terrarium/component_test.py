@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 import custom_components
-from commons.terrarium import Terrarium
+from commons.terrarium import Terrarium, TerrariumComponentRegistry
 from commons.terrarium.component.auto_configuration import auto_configuration
 from commons.terrarium.core_components.environment import Environment
 from custom_components.non_components import MyClass
 
 
-@auto_configuration(path="partial_config.yml")
+@auto_configuration(path="partial_config_{profile}.yml")
 @dataclass
 class PartialAttribute1Config:
     language: str
@@ -17,9 +17,10 @@ class PartialAttribute1Config:
 def main(foo_as_function: MyClass, environment: Environment):
     print("EXECUTE MAIN")
     print(foo_as_function.my_argument)
-    print(environment.active_profiles)
+    print(environment.profile)
 
-    instance = terra[PartialAttribute1Config]
+    registry = TerrariumComponentRegistry()
+    instance = registry[PartialAttribute1Config]
     print(instance)
 
 

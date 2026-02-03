@@ -8,18 +8,12 @@ from commons.terrarium.component.lifecycle_hook import PostInit
 @component
 class Environment(PostInit):
     def __init__(self):
-        self._environment: dict[str, str] = dict()
-        self._arguments: tuple[str, ...] = tuple()
-        self._active_profiles: tuple[str] = tuple()
+        self._environment: dict[str, str] = dict(environ)
+        self._arguments: tuple[str, ...] = tuple(argv)
+        self._profile: str = ""
 
-
-    def __post_init__(self):
-        self._environment = dict(environ)
-        self._arguments = tuple(argv)
-
-        if "terrarium.active_profiles" in environ:
-            self._active_profiles = tuple(environ.get("terrarium.active_profiles").split(','))
-
+        if "terrarium.profile" in environ:
+            self._profile = environ.get("terrarium.profile")
 
     @property
     def environment(self) -> dict[str, str]:
@@ -30,5 +24,5 @@ class Environment(PostInit):
         return self._arguments
 
     @property
-    def active_profiles(self) -> tuple[str, ...]:
-        return self._active_profiles
+    def profile(self) -> str:
+        return self._profile
