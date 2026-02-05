@@ -12,6 +12,8 @@ from commons.terrarium.component.lifecycle_hook import EntryPoint
 from commons.terrarium.component.registry import TerrariumComponentRegistry, proxy_of_type, proxy_of_callable
 from commons.terrarium.utils import to_lower_snake_case
 
+from timeit import default_timer as timer, default_timer
+
 
 def component[T](
         name: str | Callable[[...], T] | type[T] = None,
@@ -54,12 +56,27 @@ class Terrarium(AbstractContextManager[Self]):
     def __init__(self, packages: tuple[ModuleType, ...]):
         self._registry: TerrariumComponentRegistry = TerrariumComponentRegistry()
         self._packages: tuple[ModuleType, ...] = packages
+        self._metrics: dict[str, float] = dict()
 
     def __enter__(self) -> Self:
+        start = timer()
         component_scan(core_components)
         component_scan(*self._packages)
+        end = timer()
+        self._metrics["timer.component_scan"] = end - start
+
+        start = timer()
         self._registry.initialize_components()
+        end = timer()
+        self._metrics["timer.initialize_components"] = end - start
+
+        start = timer()
         self._registry.post_init_components()
+        end = timer()
+        self._metrics["timer.post_init_components"] = end - start
+
+        print(f"Metrics: {self._metrics}")
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback, /):
